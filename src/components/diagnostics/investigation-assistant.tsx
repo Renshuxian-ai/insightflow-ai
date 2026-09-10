@@ -7,6 +7,7 @@ import {
   getInvestigationModel,
   isInvestigationModelId,
 } from "@/lib/ai/model-registry";
+import type { AgentTrace, AgentTraceEventType } from "@/lib/ai/agent/types";
 import { parseInvestigationResult } from "@/lib/ai/output-schema";
 import type {
   InvestigationModelId,
@@ -23,6 +24,7 @@ import type {
   ValidationPlanTemplate,
 } from "@/lib/validations/types";
 
+import { AgentTraceSummary } from "./agent-trace-summary";
 import { InvestigationDraft } from "./investigation-draft";
 import { PMReviewPanel } from "./pm-review";
 import { ValidationPlanCard } from "./validation-plan";
@@ -39,6 +41,39 @@ function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+const agentTraceEventTypes: AgentTraceEventType[] = [
+  "model-request",
+  "tool-call",
+  "observation",
+  "final-generation",
+];
+
+function isAgentTrace(value: unknown): value is AgentTrace {
+  if (!isRecord(value) || !isRecord(value.limits) || !Array.isArray(value.events)) {
+    return false;
+  }
+
+  const hasValidEvents = value.events.every(
+    (event) =>
+      isRecord(event) &&
+      typeof event.id === "string" &&
+      typeof event.detail === "string" &&
+      typeof event.type === "string" &&
+      agentTraceEventTypes.includes(event.type as AgentTraceEventType) &&
+      (event.toolName === undefined || typeof event.toolName === "string"),
+  );
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.diagnosticCaseId === "string" &&
+    typeof value.modelId === "string" &&
+    value.persistence === "session-only" &&
+    typeof value.limits.maxToolRounds === "number" &&
+    typeof value.limits.maxToolCalls === "number" &&
+    hasValidEvents
+  );
+}
+
 export function InvestigationAssistant({
   diagnosticCase,
   models,
@@ -51,6 +86,7 @@ export function InvestigationAssistant({
   const [usedModelId, setUsedModelId] =
     useState<InvestigationModelId | null>(null);
   const [result, setResult] = useState<InvestigationResult | null>(null);
+  const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
@@ -124,7 +160,10 @@ export function InvestigationAssistant({
 
       if (
         responseBody.requestedModelId !== selectedModelId ||
-        !isInvestigationModelId(responseBody.usedModelId)
+        !isInvestigationModelId(responseBody.usedModelId) ||
+        !isAgentTrace(responseBody.trace) ||
+        responseBody.trace.diagnosticCaseId !== diagnosticCase.id ||
+        responseBody.trace.modelId !== responseBody.usedModelId
       ) {
         throw new Error("Investigation response metadata is invalid.");
       }
@@ -138,6 +177,7 @@ export function InvestigationAssistant({
         : null;
 
       setResult(validatedResult);
+      setAgentTrace(responseBody.trace);
       setUsedModelId(responseBody.usedModelId);
       setFallbackMessage(
         fallback && typeof fallback.message === "string"
@@ -362,6 +402,10 @@ export function InvestigationAssistant({
       {result && isDraftVisible ? (
         <div id={workflowRegionId}>
           <InvestigationDraft diagnosticCase={diagnosticCase} result={result} />
+          <AgentTraceSummary
+            diagnosticCase={diagnosticCase}
+            trace={agentTrace}
+          />
           <PMReviewPanel
             originalHypothesis={result.workingHypothesis.statement}
             decision={decision}
