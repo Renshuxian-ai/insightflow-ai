@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { DiagnosticCase } from "@/lib/diagnostics-mock-data";
+import type { DiagnosticCase } from "@/lib/diagnostics/types";
 import { formatDirectionalPercentageChange } from "@/lib/metric-formatters";
 
 type DiagnosticHeaderProps = {

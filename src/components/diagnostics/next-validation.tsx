@@ -1,4 +1,4 @@
-import type { DiagnosticCase } from "@/lib/diagnostics-mock-data";
+import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
 type NextValidationProps = {
   actions: DiagnosticCase["nextValidations"];

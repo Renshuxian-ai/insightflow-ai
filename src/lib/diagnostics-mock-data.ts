@@ -1,90 +1,9 @@
 import { formatPercentageMagnitude } from "./metric-formatters";
-
-export type DiagnosticSeverity = "HIGH" | "MEDIUM";
-
-export type DiagnosticMetric = {
-  id: string;
-  label: string;
-  currentValue: string;
-  changeValue: number;
-  comparison: string;
-};
-
-export type DiagnosticContextItem = {
-  id: string;
-  label: string;
-};
-
-export type BehaviorSignal = {
-  id: string;
-  label: string;
-  value: string;
-  finding: string;
-  detail: string;
-  source: string;
-};
-
-export type FeedbackSignal = {
-  id: string;
-  topic: string;
-  mentionCount: number;
-  change: string;
-  sentiment: "Negative" | "Mixed";
-  finding: string;
-  source: string;
-  snippets: string[];
-};
-
-export type ReasoningStatement = {
-  statement: string;
-  evidenceIds: string[];
-  status?: string;
-};
-
-export type DiagnosticTraceStep = {
-  id: string;
-  label: string;
-  description: string;
-  status: "mock-checked";
-  evidenceIds: string[];
-};
-
-export type NextValidation = {
-  id: string;
-  label: string;
-  description: string;
-};
-
-export type DiagnosticCase = {
-  id: string;
-  source: "mock";
-  status: "ready";
-  severity: DiagnosticSeverity;
-  title: string;
-  metric: DiagnosticMetric;
-  context: {
-    dateRange: DiagnosticContextItem;
-    segment: DiagnosticContextItem;
-    platform: DiagnosticContextItem;
-    version: DiagnosticContextItem;
-  };
-  summary: {
-    changed: string;
-    affected: string;
-    started: string;
-  };
-  evidence: {
-    behaviorSignals: [BehaviorSignal, ...BehaviorSignal[]];
-    feedbackSignals: [FeedbackSignal, ...FeedbackSignal[]];
-  };
-  reasoning: {
-    observation: ReasoningStatement;
-    inference: ReasoningStatement;
-    hypothesis: ReasoningStatement;
-  };
-  traceSteps: DiagnosticTraceStep[];
-  nextValidations: NextValidation[];
-};
+import {
+  coreConversionDiagnosticCase,
+  coreConversionDropoffSignal,
+} from "./diagnostics/fixtures/core-conversion";
+import type { DiagnosticCase, DiagnosticMetric } from "./diagnostics/types";
 
 const retentionMetric: DiagnosticMetric = {
   id: "d1-retention",
@@ -225,7 +144,10 @@ export const primaryDiagnosticCase: DiagnosticCase = {
 
 export const diagnosticCases: Record<string, DiagnosticCase> = {
   [primaryDiagnosticCase.id]: primaryDiagnosticCase,
+  [coreConversionDiagnosticCase.id]: coreConversionDiagnosticCase,
 };
+
+export { coreConversionDiagnosticCase, coreConversionDropoffSignal };
 
 export function getDiagnosticCase(id: string): DiagnosticCase | undefined {
   return diagnosticCases[id];

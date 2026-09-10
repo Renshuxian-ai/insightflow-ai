@@ -1,4 +1,8 @@
-import { primaryDiagnosticCase } from "./diagnostics-mock-data";
+import {
+  coreConversionDiagnosticCase,
+  coreConversionDropoffSignal,
+  primaryDiagnosticCase,
+} from "./diagnostics-mock-data";
 import { formatSignedPercentageChange } from "./metric-formatters";
 
 export type ChangeDirection = "positive" | "negative";
@@ -45,6 +49,7 @@ export type FeedbackTopic = {
 
 const onboardingFeedbackSignal = primaryDiagnosticCase.evidence.feedbackSignals[0];
 const primaryRetentionChange = formatSignedPercentageChange(primaryDiagnosticCase.metric.changeValue);
+const coreConversionChange = formatSignedPercentageChange(coreConversionDiagnosticCase.metric.changeValue);
 
 export const overviewKpis: Kpi[] = [
   { label: "DAU", value: "12,482", change: "+8.2%", changeDirection: "positive", comparison: "vs. previous 30 days" },
@@ -55,7 +60,13 @@ export const overviewKpis: Kpi[] = [
     changeDirection: "negative",
     comparison: primaryDiagnosticCase.metric.comparison,
   },
-  { label: "Core Conversion", value: "26.8%", change: "-2.3%", changeDirection: "negative", comparison: "vs. previous 30 days" },
+  {
+    label: coreConversionDiagnosticCase.metric.label,
+    value: coreConversionDiagnosticCase.metric.currentValue,
+    change: coreConversionChange,
+    changeDirection: "negative",
+    comparison: coreConversionDiagnosticCase.metric.comparison,
+  },
   { label: "Feedback", value: "2,183", change: "+11.2%", changeDirection: "positive", comparison: "vs. previous 30 days" },
 ];
 
@@ -81,12 +92,13 @@ export const anomalies: Anomaly[] = [
     diagnosticAvailable: true,
   },
   {
-    id: "core-conversion-decline",
-    severity: "MEDIUM",
-    title: "Core conversion declined",
-    metric: "26.8%",
-    change: "↓ 2.3%",
-    context: "Largest drop-off: Step 2 → Step 3",
+    id: coreConversionDiagnosticCase.id,
+    severity: coreConversionDiagnosticCase.severity,
+    title: coreConversionDiagnosticCase.title,
+    metric: coreConversionDiagnosticCase.metric.currentValue,
+    change: coreConversionChange,
+    context: `${coreConversionDropoffSignal.label}: ${coreConversionDropoffSignal.value}`,
+    diagnosticAvailable: true,
   },
   {
     id: "negative-feedback-increase",
