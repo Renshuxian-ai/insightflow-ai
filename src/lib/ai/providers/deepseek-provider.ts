@@ -81,13 +81,13 @@ export const deepSeekInvestigationProvider: InvestigationProvider = {
 
     return {
       ...generatedValue,
-      id: `investigation-${diagnosticCase.id}-deepseek-v3`,
+      id: `investigation-${diagnosticCase.id}-${model.id}`,
       diagnosticCaseId: diagnosticCase.id,
       source: "deepseek",
       status: "generated-draft",
       workingHypothesis: {
         ...generatedHypothesis,
-        id: `hypothesis-${diagnosticCase.id}-deepseek-v3`,
+        id: `hypothesis-${diagnosticCase.id}-${model.id}`,
         status: "unvalidated",
       },
     };
