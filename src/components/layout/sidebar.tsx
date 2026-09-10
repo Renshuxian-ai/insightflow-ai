@@ -1,4 +1,7 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
+
+import { primaryDiagnosticCase } from "@/lib/diagnostics-mock-data";
 
 type IconName =
   | "activity"
@@ -13,9 +16,10 @@ type IconName =
   | "users";
 
 type NavigationItem = {
+  id?: NavigationSection;
   label: string;
   icon: IconName;
-  active?: boolean;
+  href: string;
 };
 
 type NavigationGroup = {
@@ -26,34 +30,41 @@ type NavigationGroup = {
 const navigationGroups: NavigationGroup[] = [
   {
     items: [
-      { label: "Overview", icon: "activity", active: true },
-      { label: "AI Diagnostics", icon: "sparkles" },
+      { id: "overview", label: "Overview", icon: "activity", href: "/" },
+      {
+        id: "ai-diagnostics",
+        label: "AI Diagnostics",
+        icon: "sparkles",
+        href: `/ai-diagnostics/${primaryDiagnosticCase.id}`,
+      },
     ],
   },
   {
     label: "ANALYTICS",
     items: [
-      { label: "Trends", icon: "trend" },
-      { label: "Funnels", icon: "funnel" },
-      { label: "Retention", icon: "chart" },
-      { label: "Users", icon: "users" },
+      { label: "Trends", icon: "trend", href: "#roadmap" },
+      { label: "Funnels", icon: "funnel", href: "#roadmap" },
+      { label: "Retention", icon: "chart", href: "#roadmap" },
+      { label: "Users", icon: "users", href: "#roadmap" },
     ],
   },
   {
     label: "INSIGHTS",
     items: [
-      { label: "Feedback", icon: "message" },
-      { label: "Reports", icon: "document" },
+      { label: "Feedback", icon: "message", href: "#roadmap" },
+      { label: "Reports", icon: "document", href: "#roadmap" },
     ],
   },
   {
     label: "DATA",
     items: [
-      { label: "Events", icon: "activity" },
-      { label: "Data Sources", icon: "database" },
+      { label: "Events", icon: "activity", href: "#roadmap" },
+      { label: "Data Sources", icon: "database", href: "#roadmap" },
     ],
   },
 ];
+
+export type NavigationSection = "overview" | "ai-diagnostics";
 
 function NavigationIcon({ name }: { name: IconName }) {
   const commonProps = {
@@ -81,7 +92,7 @@ function NavigationIcon({ name }: { name: IconName }) {
   return <svg {...commonProps}>{paths[name]}</svg>;
 }
 
-export function Sidebar() {
+export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSection }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-[#e6e9ef] bg-white lg:flex">
       <div className="flex h-[76px] items-center gap-3 border-b border-[#eef0f4] px-5">
@@ -98,18 +109,20 @@ export function Sidebar() {
             {group.label ? <p className="px-2 pb-2 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">{group.label}</p> : null}
             <div className="space-y-0.5">
               {group.items.map((item) => (
-                <a
+                <Link
                   key={item.label}
-                  href={item.active ? "#overview" : "#roadmap"}
-                  aria-current={item.active ? "page" : undefined}
+                  href={item.href}
+                  aria-current={item.id === activeNavigation ? "page" : undefined}
                   className={[
                     "flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
-                    item.active ? "bg-[#edf1ff] text-[#3559e8]" : "text-[#657084] hover:bg-[#f6f7f9] hover:text-[#263247]",
+                    item.id === activeNavigation
+                      ? "bg-[#edf1ff] text-[#3559e8]"
+                      : "text-[#657084] hover:bg-[#f6f7f9] hover:text-[#263247]",
                   ].join(" ")}
                 >
                   <NavigationIcon name={item.icon} />
                   {item.label}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -117,10 +130,10 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-[#eef0f4] p-3">
-        <a href="#roadmap" className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium text-[#657084] transition-colors hover:bg-[#f6f7f9] hover:text-[#263247]">
+        <Link href="#roadmap" className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium text-[#657084] transition-colors hover:bg-[#f6f7f9] hover:text-[#263247]">
           <NavigationIcon name="settings" />
           Settings
-        </a>
+        </Link>
       </div>
     </aside>
   );

@@ -53,7 +53,7 @@ export function OverviewPage() {
             <span className="grid size-8 place-items-center rounded-lg bg-[#edf1ff] text-[#3559e8]" aria-hidden="true">✦</span>
           </div>
           <div className="mt-4 space-y-3">
-            {anomalies.map((anomaly) => <AnomalyCard key={anomaly.title} anomaly={anomaly} />)}
+            {anomalies.map((anomaly) => <AnomalyCard key={anomaly.id} anomaly={anomaly} />)}
           </div>
         </section>
       </section>

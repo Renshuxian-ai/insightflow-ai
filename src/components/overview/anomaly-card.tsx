@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { Anomaly } from "@/lib/overview-mock-data";
 
 type AnomalyCardProps = {
@@ -16,9 +18,23 @@ export function AnomalyCard({ anomaly }: AnomalyCardProps) {
           </span>
           <h3 className="mt-2 text-sm font-semibold tracking-[-0.01em] text-[#263247]">{anomaly.title}</h3>
         </div>
-        <button type="button" className="shrink-0 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb]">
-          Investigate <span aria-hidden="true">→</span>
-        </button>
+        {anomaly.diagnosticAvailable ? (
+          <Link
+            href={`/ai-diagnostics/${anomaly.id}`}
+            className="shrink-0 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb]"
+          >
+            Investigate <span aria-hidden="true">→</span>
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="Diagnostic case planned"
+            className="shrink-0 cursor-not-allowed text-xs font-semibold text-[#a1a8b5]"
+          >
+            Investigate <span aria-hidden="true">→</span>
+          </button>
+        )}
       </div>
       <p className="mt-3 text-sm font-semibold text-[#263247]">
         {anomaly.metric} <span className="font-medium text-[#c44242]">{anomaly.change}</span>

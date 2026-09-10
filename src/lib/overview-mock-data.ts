@@ -1,3 +1,6 @@
+import { primaryDiagnosticCase } from "./diagnostics-mock-data";
+import { formatSignedPercentageChange } from "./metric-formatters";
+
 export type ChangeDirection = "positive" | "negative";
 
 export type Kpi = {
@@ -16,17 +19,13 @@ export type TrendPoint = {
 export type AnomalySeverity = "HIGH" | "MEDIUM";
 
 export type Anomaly = {
+  id: string;
   severity: AnomalySeverity;
   title: string;
   metric: string;
   change: string;
   context: string;
-  diagnosticContext?: {
-    evidence: string[];
-    observation: string;
-    inference: string;
-    hypothesis: string;
-  };
+  diagnosticAvailable?: boolean;
 };
 
 export type UserSegment = {
@@ -44,9 +43,18 @@ export type FeedbackTopic = {
   change: string;
 };
 
+const onboardingFeedbackSignal = primaryDiagnosticCase.evidence.feedbackSignals[0];
+const primaryRetentionChange = formatSignedPercentageChange(primaryDiagnosticCase.metric.changeValue);
+
 export const overviewKpis: Kpi[] = [
   { label: "DAU", value: "12,482", change: "+8.2%", changeDirection: "positive", comparison: "vs. previous 30 days" },
-  { label: "D1 Retention", value: "38.4%", change: "-4.1%", changeDirection: "negative", comparison: "vs. previous 30 days" },
+  {
+    label: primaryDiagnosticCase.metric.label,
+    value: primaryDiagnosticCase.metric.currentValue,
+    change: primaryRetentionChange,
+    changeDirection: "negative",
+    comparison: primaryDiagnosticCase.metric.comparison,
+  },
   { label: "Core Conversion", value: "26.8%", change: "-2.3%", changeDirection: "negative", comparison: "vs. previous 30 days" },
   { label: "Feedback", value: "2,183", change: "+11.2%", changeDirection: "positive", comparison: "vs. previous 30 days" },
 ];
@@ -64,19 +72,16 @@ export const productTrend: TrendPoint[] = [
 
 export const anomalies: Anomaly[] = [
   {
-    severity: "HIGH",
-    title: "New-user D1 retention dropped",
-    metric: "38.4%",
-    change: "↓ 4.1%",
-    context: "Affected: Android · New Users · V3.2",
-    diagnosticContext: {
-      evidence: ["D1 retention is below its recent baseline for Android new users."],
-      observation: "The decline starts after the V3.2 release window.",
-      inference: "The onboarding experience may be contributing to early churn.",
-      hypothesis: "A V3.2 onboarding change created friction for new Android users.",
-    },
+    id: primaryDiagnosticCase.id,
+    severity: primaryDiagnosticCase.severity,
+    title: primaryDiagnosticCase.title,
+    metric: primaryDiagnosticCase.metric.currentValue,
+    change: primaryRetentionChange,
+    context: `Affected: ${primaryDiagnosticCase.context.platform.label} · ${primaryDiagnosticCase.context.segment.label} · ${primaryDiagnosticCase.context.version.label}`,
+    diagnosticAvailable: true,
   },
   {
+    id: "core-conversion-decline",
     severity: "MEDIUM",
     title: "Core conversion declined",
     metric: "26.8%",
@@ -84,6 +89,7 @@ export const anomalies: Anomaly[] = [
     context: "Largest drop-off: Step 2 → Step 3",
   },
   {
+    id: "negative-feedback-increase",
     severity: "MEDIUM",
     title: "Negative feedback increased",
     metric: "Search-related feedback",
@@ -93,13 +99,24 @@ export const anomalies: Anomaly[] = [
 ];
 
 export const userSegments: UserSegment[] = [
-  { name: "Android new users", description: "First 7 days after signup", users: "12,448 users", change: "D1 retention −7.2%", changeDirection: "negative" },
+  {
+    name: `${primaryDiagnosticCase.context.platform.label} ${primaryDiagnosticCase.context.segment.label.toLowerCase()}`,
+    description: "First 7 days after signup",
+    users: "12,448 users",
+    change: `${primaryDiagnosticCase.metric.label} ${primaryRetentionChange}`,
+    changeDirection: "negative",
+  },
   { name: "Power collaborators", description: "Invited 3+ teammates", users: "5,102 users", change: "Activation +5.8%", changeDirection: "positive" },
   { name: "Search-heavy teams", description: "10+ searches per week", users: "3,875 users", change: "Negative feedback +24%", changeDirection: "negative" },
 ];
 
 export const feedbackTopics: FeedbackTopic[] = [
   { name: "Search relevance", mentionCount: 38, sentiment: "Negative", change: "+37%" },
-  { name: "Onboarding clarity", mentionCount: 21, sentiment: "Negative", change: "+18%" },
+  {
+    name: onboardingFeedbackSignal.topic,
+    mentionCount: onboardingFeedbackSignal.mentionCount,
+    sentiment: onboardingFeedbackSignal.sentiment,
+    change: onboardingFeedbackSignal.change,
+  },
   { name: "Team collaboration", mentionCount: 16, sentiment: "Mixed", change: "+6%" },
 ];
