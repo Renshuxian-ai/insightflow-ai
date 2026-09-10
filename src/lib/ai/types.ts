@@ -1,4 +1,5 @@
 import type { InvestigationResult } from "@/lib/investigations/types";
+import type { AgentTrace } from "./agent/types";
 
 export type AIProviderId = "mock" | "deepseek";
 
@@ -24,6 +25,7 @@ export type InvestigationFallbackReason =
 
 export type InvestigationGenerationResult = {
   result: InvestigationResult;
+  trace: AgentTrace;
   requestedModelId: InvestigationModelId;
   usedModelId: InvestigationModelId;
   fallback: {

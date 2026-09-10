@@ -1,5 +1,6 @@
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
+import { runBoundedInvestigationAgent } from "./agent/investigation-agent";
 import {
   InvestigationOutputValidationError,
   parseInvestigationResult,
@@ -23,8 +24,16 @@ async function generateWithModel(
     throw new ProviderUnavailableError(provider.id);
   }
 
-  const output = await provider.generate({ diagnosticCase, model });
-  return parseInvestigationResult(output, diagnosticCase);
+  const agentResult = await runBoundedInvestigationAgent({
+    diagnosticCase,
+    model,
+    provider,
+  });
+
+  return {
+    result: parseInvestigationResult(agentResult.output, diagnosticCase),
+    trace: agentResult.trace,
+  };
 }
 
 function getFallbackReason(error: unknown): InvestigationFallbackReason {
@@ -56,10 +65,14 @@ export async function generateInvestigation(
   requestedModelId: InvestigationModelId,
 ): Promise<InvestigationGenerationResult> {
   try {
-    const result = await generateWithModel(diagnosticCase, requestedModelId);
+    const generation = await generateWithModel(
+      diagnosticCase,
+      requestedModelId,
+    );
 
     return {
-      result,
+      result: generation.result,
+      trace: generation.trace,
       requestedModelId,
       usedModelId: requestedModelId,
       fallback: null,
@@ -70,13 +83,14 @@ export async function generateInvestigation(
     }
 
     const fallbackReason = getFallbackReason(error);
-    const result = await generateWithModel(
+    const generation = await generateWithModel(
       diagnosticCase,
       defaultInvestigationModelId,
     );
 
     return {
-      result,
+      result: generation.result,
+      trace: generation.trace,
       requestedModelId,
       usedModelId: defaultInvestigationModelId,
       fallback: {
