@@ -10,8 +10,8 @@ export type EvidenceReference = {
 export type InvestigationResult = {
   id: string;
   diagnosticCaseId: string;
-  source: "mock";
-  status: "prototype-draft";
+  source: "mock" | "deepseek";
+  status: "prototype-draft" | "generated-draft";
   focus: {
     title: string;
     description: string;

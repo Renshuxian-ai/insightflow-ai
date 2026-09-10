@@ -1,5 +1,5 @@
+import { investigationModelOptions } from "@/lib/ai/model-registry";
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
-import { getInvestigationResult } from "@/lib/investigations/mock-data";
 import { getValidationPlanTemplates } from "@/lib/validations/mock-data";
 
 import { DiagnosticEvidence } from "./diagnostic-evidence";
@@ -14,7 +14,6 @@ type DiagnosticsPageProps = {
 };
 
 export function DiagnosticsPage({ diagnosticCase }: DiagnosticsPageProps) {
-  const investigationResult = getInvestigationResult(diagnosticCase.id);
   const validationPlanTemplates = getValidationPlanTemplates(diagnosticCase.id);
 
   return (
@@ -29,7 +28,7 @@ export function DiagnosticsPage({ diagnosticCase }: DiagnosticsPageProps) {
         <InvestigationAssistant
           key={diagnosticCase.id}
           diagnosticCase={diagnosticCase}
-          result={investigationResult}
+          models={investigationModelOptions}
           validationPlanTemplates={validationPlanTemplates}
         />
       </div>
