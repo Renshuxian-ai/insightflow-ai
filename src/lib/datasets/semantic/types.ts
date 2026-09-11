@@ -164,3 +164,64 @@ export type SemanticInferenceContext = {
   physicalWarnings: DatasetWarningCode[];
   fields: SemanticInferenceField[];
 };
+
+export type SemanticUseStatus =
+  | "ready-to-use"
+  | "needs-review"
+  | "meaning-unclear"
+  | "not-used";
+
+export type SemanticMappingOrigin =
+  | "system-auto-use"
+  | "system-needs-review"
+  | "system-unclear"
+  | "human-accepted"
+  | "human-edited"
+  | "human-unresolved"
+  | "human-excluded";
+
+export type SemanticAutoUseSignals = {
+  suggestionAvailable: boolean;
+  deterministicAgreement: boolean;
+  physicalTypeCompatible: boolean;
+  fieldNameEvidence: boolean;
+  profileReliable: boolean;
+  valueSemanticsClear: boolean;
+  ambiguityClear: boolean;
+  alternativesClear: boolean;
+  datasetContextAvailable: boolean;
+};
+
+export type SemanticAutoUseAssessment = {
+  stableFieldKey: string;
+  baseStatus: Exclude<SemanticUseStatus, "not-used">;
+  isCritical: boolean;
+  signals: SemanticAutoUseSignals;
+  reasons: string[];
+};
+
+export type SemanticConflict = {
+  id: string;
+  semanticType: SemanticType;
+  fieldKeys: string[];
+  severity: "blocking" | "warning";
+  message: string;
+};
+
+export type SemanticAutoUsePolicyResult = {
+  version: 1;
+  physicalSchema: PhysicalSchemaReference;
+  datasetContextUsed: boolean;
+  requiredSemanticTypes: SemanticType[];
+  assessments: SemanticAutoUseAssessment[];
+};
+
+export type SemanticFieldReviewEvidence = {
+  stableFieldKey: string;
+  sanitizedSamples: SanitizedSampleValue[];
+  sampleSummary: SemanticSampleSummary;
+  safeStatistics: SemanticSafeStatistics;
+  nullRate: number;
+  distinctCount: number;
+  isDistinctCountExact: boolean;
+};

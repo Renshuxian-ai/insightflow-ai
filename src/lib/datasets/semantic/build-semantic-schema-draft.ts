@@ -68,12 +68,7 @@ export function buildSemanticSchemaDraft(
       fieldIndex: field.index,
       originalName: field.originalName,
       suggestion,
-      resolution: suggestion
-        ? { status: "suggested" }
-        : {
-            status: "unresolved",
-            reason: "No semantic suggestion was generated for this field.",
-          },
+      resolution: { status: "suggested" },
     };
   });
 

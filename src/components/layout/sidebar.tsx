@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { primaryDiagnosticCase } from "@/lib/diagnostics-mock-data";
+
+import { useAppShellState } from "./app-shell-state";
 
 type IconName =
   | "activity"
@@ -97,37 +101,126 @@ function NavigationIcon({ name }: { name: IconName }) {
   return <svg {...commonProps}>{paths[name]}</svg>;
 }
 
-export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSection }) {
+function SidebarTooltip({ label }: { label: string }) {
   return (
-    <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-[#e6e9ef] bg-white lg:flex">
-      <div className="flex h-[76px] items-center gap-3 border-b border-[#eef0f4] px-5">
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md bg-[#172033] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+    >
+      {label}
+    </span>
+  );
+}
+
+function SidebarLink({
+  item,
+  active,
+  collapsed,
+}: {
+  item: NavigationItem;
+  active: boolean;
+  collapsed: boolean;
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      title={collapsed ? item.label : undefined}
+      className={[
+        "group relative flex h-9 items-center rounded-lg text-[13px] font-medium transition-colors",
+        collapsed ? "mx-auto w-10 justify-center px-0" : "gap-3 px-2.5",
+        active
+          ? "bg-[#edf1ff] text-[#3559e8]"
+          : "text-[#657084] hover:bg-[#f6f7f9] hover:text-[#263247]",
+      ].join(" ")}
+    >
+      <NavigationIcon name={item.icon} />
+      <span className={collapsed ? "sr-only" : undefined}>{item.label}</span>
+      {collapsed ? <SidebarTooltip label={item.label} /> : null}
+    </Link>
+  );
+}
+
+export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSection }) {
+  const { sidebarCollapsed, toggleSidebar } = useAppShellState();
+
+  return (
+    <aside
+      className={[
+        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e6e9ef] bg-white transition-[width] duration-200 lg:flex",
+        sidebarCollapsed ? "w-[68px]" : "w-[248px]",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex h-[76px] shrink-0 items-center border-b border-[#eef0f4]",
+          sidebarCollapsed ? "justify-center px-3" : "gap-3 px-5",
+        ].join(" ")}
+      >
         <div className="grid size-9 place-items-center rounded-xl bg-[#3559e8] text-xs font-bold tracking-tight text-white shadow-[0_6px_16px_rgba(53,89,232,0.22)]">IF</div>
-        <div>
+        <div className={sidebarCollapsed ? "hidden" : undefined}>
           <p className="text-sm font-semibold tracking-[-0.01em] text-[#172033]">InsightFlow AI</p>
           <p className="mt-0.5 text-[11px] text-[#7e8798]">Product intelligence</p>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="absolute -right-3 top-16 z-20 grid size-6 place-items-center rounded-full border border-[#dfe3eb] bg-white text-[#7e8798] shadow-sm transition-colors hover:border-[#c8cfda] hover:text-[#3559e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3559e8]/30"
+      >
+        <svg
+          aria-hidden="true"
+          className="size-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d={sidebarCollapsed ? "m9 5 7 7-7 7" : "m15 5-7 7 7 7"}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <nav
+        className={[
+          "min-h-0 flex-1 py-4",
+          sidebarCollapsed ? "overflow-visible px-2" : "overflow-y-auto px-3",
+        ].join(" ")}
+        aria-label="Primary navigation"
+      >
         {navigationGroups.map((group, groupIndex) => (
-          <div key={group.label ?? "primary"} className={groupIndex === 0 ? "" : "mt-6"}>
-            {group.label ? <p className="px-2 pb-2 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">{group.label}</p> : null}
+          <div
+            key={group.label ?? "primary"}
+            className={groupIndex === 0 ? "" : sidebarCollapsed ? "mt-4" : "mt-6"}
+          >
+            {group.label ? (
+              sidebarCollapsed ? (
+                <div
+                  className="mx-auto mb-2 h-px w-7 bg-[#eef0f4]"
+                  aria-label={group.label}
+                  role="separator"
+                />
+              ) : (
+                <p className="px-2 pb-2 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">
+                  {group.label}
+                </p>
+              )
+            ) : null}
             <div className="space-y-0.5">
               {group.items.map((item) => (
-                <Link
+                <SidebarLink
                   key={item.label}
-                  href={item.href}
-                  aria-current={item.id === activeNavigation ? "page" : undefined}
-                  className={[
-                    "flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
-                    item.id === activeNavigation
-                      ? "bg-[#edf1ff] text-[#3559e8]"
-                      : "text-[#657084] hover:bg-[#f6f7f9] hover:text-[#263247]",
-                  ].join(" ")}
-                >
-                  <NavigationIcon name={item.icon} />
-                  {item.label}
-                </Link>
+                  item={item}
+                  active={item.id === activeNavigation}
+                  collapsed={sidebarCollapsed}
+                />
               ))}
             </div>
           </div>
@@ -135,10 +228,11 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
       </nav>
 
       <div className="border-t border-[#eef0f4] p-3">
-        <Link href="#roadmap" className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium text-[#657084] transition-colors hover:bg-[#f6f7f9] hover:text-[#263247]">
-          <NavigationIcon name="settings" />
-          Settings
-        </Link>
+        <SidebarLink
+          item={{ label: "Settings", icon: "settings", href: "#roadmap" }}
+          active={false}
+          collapsed={sidebarCollapsed}
+        />
       </div>
     </aside>
   );

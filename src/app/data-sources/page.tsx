@@ -13,8 +13,8 @@ export default function DataSourcesPage() {
             Data Sources
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#657084]">
-            Upload a dataset to inspect its physical schema and a limited data preview
-            before connecting it to an analysis workflow.
+            Upload a dataset, inspect its physical structure, and review the field
+            meanings that future analysis will rely on.
           </p>
         </header>
 

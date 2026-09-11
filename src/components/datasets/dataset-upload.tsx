@@ -7,6 +7,12 @@ import { DATASET_LIMITS } from "@/lib/datasets/constants";
 type DatasetUploadProps = {
   isUploading: boolean;
   fileName?: string;
+  readyDataset?: {
+    fileName: string;
+    rowCount: number;
+    columnCount: number;
+    format: string;
+  };
   error?: string;
   onFileSelected: (file: File) => void;
 };
@@ -18,6 +24,7 @@ const MAX_FILE_SIZE_MB = Math.floor(
 export function DatasetUpload({
   isUploading,
   fileName,
+  readyDataset,
   error,
   onFileSelected,
 }: DatasetUploadProps) {
@@ -46,6 +53,89 @@ export function DatasetUpload({
       event.preventDefault();
       inputRef.current?.click();
     }
+  }
+
+  const fileInput = (
+    <input
+      ref={inputRef}
+      className="sr-only"
+      type="file"
+      accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      disabled={isUploading}
+      onChange={(event) => {
+        selectFirstFile(event.target.files);
+        event.target.value = "";
+      }}
+    />
+  );
+
+  if (readyDataset) {
+    return (
+      <section className="rounded-xl border border-[#e3e7ee] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.03)] sm:px-5">
+        {fileInput}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#dfe4ec] bg-[#f8f9fb] text-[#526078]">
+              <svg
+                aria-hidden="true"
+                className="size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path
+                  d="M7 3.75h7l3 3v13.5H7V3.75Z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M14 3.75v3h3M9.5 11h5M9.5 14.5h5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-semibold text-[#263247]"
+                title={readyDataset.fileName}
+              >
+                {readyDataset.fileName}
+              </p>
+              <p className="mt-0.5 text-xs text-[#7e8798]">
+                {readyDataset.rowCount.toLocaleString()} rows ·{" "}
+                {readyDataset.columnCount.toLocaleString()} columns ·{" "}
+                {readyDataset.format.toUpperCase()}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3 pl-12 sm:pl-0">
+            <span className="text-xs font-medium text-[#7e8798]">
+              Session only
+            </span>
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => inputRef.current?.click()}
+              className="rounded-lg border border-[#d8dee8] bg-white px-3 py-2 text-xs font-semibold text-[#526078] transition hover:border-[#b8c2d2] hover:text-[#263247] disabled:cursor-wait disabled:opacity-50"
+            >
+              Replace file
+            </button>
+          </div>
+        </div>
+
+        {error ? (
+          <div
+            role="alert"
+            className="mt-3 rounded-lg border border-[#f3d6d6] bg-[#fff7f7] px-3.5 py-3 text-sm text-[#a53d3d]"
+          >
+            {error}
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   return (
@@ -89,24 +179,16 @@ export function DatasetUpload({
           isUploading ? "cursor-wait opacity-75" : "",
         ].join(" ")}
       >
-        <input
-          ref={inputRef}
-          className="sr-only"
-          type="file"
-          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          disabled={isUploading}
-          onChange={(event) => {
-            selectFirstFile(event.target.files);
-            event.target.value = "";
-          }}
-        />
+        {fileInput}
         <div className="grid size-11 place-items-center rounded-xl border border-[#dfe4ec] bg-white text-[#526078] shadow-sm">
           <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
             <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <p className="mt-4 text-sm font-semibold text-[#263247]">
-          {isUploading ? "Processing dataset..." : "Drop a file here or click to browse"}
+          {isUploading
+            ? "Processing dataset..."
+            : "Drop a file here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-[#8490a3]">
           CSV / XLSX · Max file size {MAX_FILE_SIZE_MB} MB · Session only

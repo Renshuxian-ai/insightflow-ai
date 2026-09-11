@@ -38,7 +38,7 @@ const fieldNameRules: FieldNameRule[] = [
   },
   {
     patterns: [
-      /^(timestamp|time|event_?time|event_?timestamp|created_?at|occurred_?at)$/,
+      /^(timestamp|time|event_?time|event_?timestamp|event_?ts|evt_?ts|created_?at|occurred_?at)$/,
     ],
     semanticType: SEMANTIC_TYPE_IDS.eventTimestamp,
     semanticConfidence: 0.9,
@@ -49,6 +49,12 @@ const fieldNameRules: FieldNameRule[] = [
     semanticType: SEMANTIC_TYPE_IDS.platform,
     semanticConfidence: 0.9,
     businessMeaning: "User platform or operating system",
+  },
+  {
+    patterns: [/^(country|country_?code|user_?country)$/],
+    semanticType: SEMANTIC_TYPE_IDS.dimension,
+    semanticConfidence: 0.9,
+    businessMeaning: "User country",
   },
   {
     patterns: [/^(version|app_?version|release|release_?version)$/],
@@ -75,7 +81,7 @@ const fieldNameRules: FieldNameRule[] = [
     businessMeaning: "Revenue measurement",
   },
   {
-    patterns: [/^(retention|retention_?rate|d\d+_?retention)$/],
+    patterns: [/^(retention|retention_?rate|d\d+_?retention|ret_?\d+d)$/],
     semanticType: SEMANTIC_TYPE_IDS.retention,
     semanticConfidence: 0.84,
     businessMeaning: "User retention outcome",
@@ -87,10 +93,16 @@ const fieldNameRules: FieldNameRule[] = [
     businessMeaning: "Conversion funnel step",
   },
   {
-    patterns: [/^(metric|metric_?value|value|amount|count|score|rate)$/],
+    patterns: [/^(metric|metric_?value|value|amount|amt|count|score|rate)$/],
     semanticType: SEMANTIC_TYPE_IDS.metric,
     semanticConfidence: 0.72,
     businessMeaning: "Product measurement",
+  },
+  {
+    patterns: [/^(amount|amt)$/],
+    semanticType: SEMANTIC_TYPE_IDS.revenue,
+    semanticConfidence: 0.56,
+    businessMeaning: "Possible monetary amount",
   },
 ];
 

@@ -22,20 +22,24 @@ function PreviewValue({ value }: { value: DatasetCellValue }) {
 
 export function DatasetPreview({ preview }: DatasetPreviewProps) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#e3e7ee] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
-      <div className="flex items-start justify-between gap-4 border-b border-[#edf0f4] px-5 py-4 sm:px-6">
-        <div>
-          <h2 className="text-sm font-semibold text-[#172033]">Preview</h2>
-          <p className="mt-1 text-xs text-[#7e8798]">
-            A limited preview in the original column order.
-          </p>
+    <details className="overflow-hidden rounded-2xl border border-[#e3e7ee] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
+      <summary className="cursor-pointer list-none px-5 py-4 marker:hidden sm:px-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-[#172033]">
+              Data preview
+            </h2>
+            <p className="mt-1 text-xs text-[#7e8798]">
+              First {preview.rows.length.toLocaleString()} rows
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-[#526078]">
+            View preview
+          </span>
         </div>
-        <span className="shrink-0 text-xs font-medium text-[#7e8798]">
-          First {preview.rows.length.toLocaleString()} rows
-        </span>
-      </div>
+      </summary>
 
-      <div className="max-h-[34rem] overflow-auto">
+      <div className="max-h-[34rem] overflow-auto border-t border-[#edf0f4]">
         <table className="w-full min-w-max border-collapse text-left text-sm">
           <thead className="sticky top-0 z-10 bg-[#f8f9fb] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7b8597]">
             <tr>
@@ -66,6 +70,6 @@ export function DatasetPreview({ preview }: DatasetPreviewProps) {
           </p>
         ) : null}
       </div>
-    </section>
+    </details>
   );
 }
