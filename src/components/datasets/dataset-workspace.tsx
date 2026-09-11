@@ -364,14 +364,15 @@ export function DatasetWorkspace() {
         );
       }
 
-      const nextSchema = previousDraft
-        ? mergeSemanticSchemaDraft(previousDraft.schema, payload.semanticSchema)
+      const latestDraft = reviewDrafts.current.get(reviewKey) ?? previousDraft;
+      const nextSchema = latestDraft
+        ? mergeSemanticSchemaDraft(latestDraft.schema, payload.semanticSchema)
         : payload.semanticSchema;
-      const nextPolicy = previousDraft
+      const nextPolicy = latestDraft
         ? mergeSemanticAutoUsePolicy(
-            previousDraft.autoUsePolicy,
+            latestDraft.autoUsePolicy,
             payload.autoUsePolicy,
-            previousDraft.schema,
+            latestDraft.schema,
           )
         : payload.autoUsePolicy;
 
@@ -382,7 +383,7 @@ export function DatasetWorkspace() {
       setCurrentReviewKey(reviewKey);
       setSemanticStatus("ready");
       setSemanticSessionMessage(
-        previousDraft
+        latestDraft
           ? "Field suggestions were refreshed. Your decisions were preserved."
           : null,
       );
@@ -403,14 +404,16 @@ export function DatasetWorkspace() {
         return;
       }
 
-      if (previousDraft) {
-        setSemanticSchema(previousDraft.schema);
-        setAutoUsePolicy(previousDraft.autoUsePolicy);
-        setFieldEvidence(previousDraft.fieldEvidence);
-        setDatasetContext(previousDraft.datasetContext);
+      const latestDraft = reviewDrafts.current.get(reviewKey) ?? previousDraft;
+
+      if (latestDraft) {
+        setSemanticSchema(latestDraft.schema);
+        setAutoUsePolicy(latestDraft.autoUsePolicy);
+        setFieldEvidence(latestDraft.fieldEvidence);
+        setDatasetContext(latestDraft.datasetContext);
         setSemanticStatus("ready");
         setSemanticSessionMessage(
-          "Field suggestions could not be refreshed. Your existing review was kept.",
+          "Couldn’t refresh field understanding. Your current review is unchanged.",
         );
         return;
       }
