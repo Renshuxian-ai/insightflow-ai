@@ -6,6 +6,7 @@ export type DatasetErrorCode =
   | "empty-dataset"
   | "worksheet-limit-exceeded"
   | "no-visible-worksheet"
+  | "worksheet-not-found"
   | "row-limit-exceeded"
   | "column-limit-exceeded"
   | "cell-limit-exceeded"

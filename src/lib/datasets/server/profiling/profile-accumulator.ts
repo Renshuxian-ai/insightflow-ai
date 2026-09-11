@@ -43,6 +43,7 @@ export class FieldProfileAccumulator {
 
   constructor(
     private readonly id: string,
+    private readonly stableFieldKey: string,
     private readonly index: number,
     private readonly originalName: string,
     private readonly displayName: string,
@@ -77,10 +78,12 @@ export class FieldProfileAccumulator {
 
     return {
       id: this.id,
+      stableFieldKey: this.stableFieldKey,
       index: this.index,
       originalName: this.originalName,
       displayName: this.displayName,
       detectedType,
+      typeConfidence: this.getTypeConfidence(detectedType),
       nonNullCount: this.nonNullCount,
       nullCount: this.nullCount,
       nullRate: profiledRows === 0 ? 0 : this.nullCount / profiledRows,
@@ -90,6 +93,34 @@ export class FieldProfileAccumulator {
       statistics: this.createStatistics(detectedType),
       warnings,
     };
+  }
+
+  private getTypeConfidence(detectedType: FieldProfile["detectedType"]): number {
+    if (this.nonNullCount === 0) {
+      return 0;
+    }
+
+    if (detectedType === "number") {
+      return (
+        (this.typeCounts.integer + this.typeCounts.number) / this.nonNullCount
+      );
+    }
+
+    if (detectedType === "datetime") {
+      return (
+        (this.typeCounts.date + this.typeCounts.datetime) / this.nonNullCount
+      );
+    }
+
+    if (detectedType === "mixed") {
+      return Math.max(...Object.values(this.typeCounts)) / this.nonNullCount;
+    }
+
+    if (detectedType === "empty") {
+      return 0;
+    }
+
+    return this.typeCounts[detectedType] / this.nonNullCount;
   }
 
   private observeDistinctValue(value: DatasetCellValue) {

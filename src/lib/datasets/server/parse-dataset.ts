@@ -10,16 +10,23 @@ import { getDatasetParser } from "./parsers/parser-registry";
 import { profileDataset } from "./profiling/profile-dataset";
 import { validateDatasetUpload } from "./validate-upload";
 
+export type ParseDatasetOptions = {
+  sheetName?: string;
+};
+
 function getDatasetName(fileName: string): string {
   const withoutExtension = fileName.replace(/\.[^.]+$/, "").trim();
   return withoutExtension || "Dataset";
 }
 
-export async function parseDataset(value: unknown): Promise<Dataset> {
+export async function parseDataset(
+  value: unknown,
+  options: ParseDatasetOptions = {},
+): Promise<Dataset> {
   try {
     const upload = await validateDatasetUpload(value);
     const parser = getDatasetParser(upload.format);
-    const parsedDataset = await parser.parse(upload);
+    const parsedDataset = await parser.parse(upload, options);
     const datasetId = randomUUID();
     const schema = profileDataset(datasetId, parsedDataset);
 

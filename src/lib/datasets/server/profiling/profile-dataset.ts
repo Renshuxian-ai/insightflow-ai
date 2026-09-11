@@ -5,6 +5,10 @@ import type { DatasetSchema, DatasetWarning } from "@/lib/datasets/types";
 
 import type { ParsedDataset } from "../parsers/types";
 import { FieldProfileAccumulator } from "./profile-accumulator";
+import {
+  createSchemaFingerprint,
+  createStableFieldKey,
+} from "./stable-schema-references";
 
 export function profileDataset(
   datasetId: string,
@@ -15,6 +19,11 @@ export function profileDataset(
     (column) =>
       new FieldProfileAccumulator(
         `${datasetId}:field:${column.index}`,
+        createStableFieldKey(
+          parsedDataset.selectedSheetName,
+          column.index,
+          column.originalName,
+        ),
         column.index,
         column.originalName,
         column.displayName,
@@ -37,15 +46,21 @@ export function profileDataset(
     });
   }
 
+  const fields = accumulators.map((accumulator) =>
+    accumulator.toFieldProfile(profiledRows.length),
+  );
+
   return {
     datasetId,
     version: 1,
+    schemaFingerprint: createSchemaFingerprint(
+      parsedDataset.selectedSheetName,
+      fields,
+    ),
     selectedSheetName: parsedDataset.selectedSheetName,
     availableSheetNames: parsedDataset.availableSheetNames,
     headerRowIndex: parsedDataset.headerRowIndex,
-    fields: accumulators.map((accumulator) =>
-      accumulator.toFieldProfile(profiledRows.length),
-    ),
+    fields,
     profileScope: {
       totalRows: parsedDataset.rowCount,
       profiledRows: profiledRows.length,

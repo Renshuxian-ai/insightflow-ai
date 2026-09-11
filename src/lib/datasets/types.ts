@@ -54,10 +54,12 @@ export type FieldStatistics =
 
 export type FieldProfile = {
   id: string;
+  stableFieldKey: string;
   index: number;
   originalName: string;
   displayName: string;
   detectedType: FieldDataType;
+  typeConfidence: number;
   nonNullCount: number;
   nullCount: number;
   nullRate: number;
@@ -71,6 +73,7 @@ export type FieldProfile = {
 export type DatasetSchema = {
   datasetId: string;
   version: 1;
+  schemaFingerprint: string;
   selectedSheetName: string | null;
   availableSheetNames: string[];
   headerRowIndex: number;

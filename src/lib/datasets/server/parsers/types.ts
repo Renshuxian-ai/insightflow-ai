@@ -30,9 +30,16 @@ export type ParsedDataset = {
   warnings: DatasetWarning[];
 };
 
+export type DatasetParserOptions = {
+  sheetName?: string;
+};
+
 export type DatasetParser = {
   format: DatasetFormat;
-  parse(upload: ValidatedDatasetUpload): Promise<ParsedDataset>;
+  parse(
+    upload: ValidatedDatasetUpload,
+    options?: DatasetParserOptions,
+  ): Promise<ParsedDataset>;
 };
 
 export function createParsedColumns(rawHeaders: string[]): {

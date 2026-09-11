@@ -23,6 +23,7 @@ import {
   createParsedColumns,
   isEmptyRow,
   type DatasetParser,
+  type DatasetParserOptions,
   type ParsedDataset,
   type ValidatedDatasetUpload,
 } from "./types";
@@ -116,10 +117,13 @@ function readWorksheetRow(
   return values;
 }
 
-async function parseXlsx(upload: ValidatedDatasetUpload): Promise<ParsedDataset> {
+async function parseXlsx(
+  upload: ValidatedDatasetUpload,
+  options: DatasetParserOptions = {},
+): Promise<ParsedDataset> {
   try {
     const workbook = new ExcelJS.Workbook();
-    const loadXlsx = workbook.xlsx.load as unknown as (
+    const loadXlsx = workbook.xlsx.load.bind(workbook.xlsx) as unknown as (
       buffer: Uint8Array,
     ) => Promise<ExcelJS.Workbook>;
     await loadXlsx(Buffer.from(upload.bytes));
@@ -142,13 +146,22 @@ async function parseXlsx(upload: ValidatedDatasetUpload): Promise<ParsedDataset>
       );
     }
 
-    const worksheet = visibleWorksheets[0];
+    const worksheet = options.sheetName
+      ? visibleWorksheets.find((item) => item.name === options.sheetName)
+      : visibleWorksheets[0];
+
+    if (!worksheet) {
+      throw new DatasetError(
+        "worksheet-not-found",
+        "The selected worksheet is not available in this workbook.",
+      );
+    }
     const warnings: DatasetWarning[] = [];
 
     if (visibleWorksheets.length > 1) {
       warnings.push({
         code: "multiple-worksheets",
-        message: `The first visible worksheet, ${worksheet.name}, was profiled.`,
+        message: `${worksheet.name} is selected. You can switch between the available worksheets.`,
       });
     }
 

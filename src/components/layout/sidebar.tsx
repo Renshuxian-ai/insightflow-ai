@@ -59,12 +59,17 @@ const navigationGroups: NavigationGroup[] = [
     label: "DATA",
     items: [
       { label: "Events", icon: "activity", href: "#roadmap" },
-      { label: "Data Sources", icon: "database", href: "#roadmap" },
+      {
+        id: "data-sources",
+        label: "Data Sources",
+        icon: "database",
+        href: "/data-sources",
+      },
     ],
   },
 ];
 
-export type NavigationSection = "overview" | "ai-diagnostics";
+export type NavigationSection = "overview" | "ai-diagnostics" | "data-sources";
 
 function NavigationIcon({ name }: { name: IconName }) {
   const commonProps = {
