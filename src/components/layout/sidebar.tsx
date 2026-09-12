@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { UploadIcon } from "@/components/icons/upload-icon";
 import { primaryDiagnosticCase } from "@/lib/diagnostics-mock-data";
 
 import { useAppShellState } from "./app-shell-state";
@@ -13,10 +14,13 @@ type IconName =
   | "database"
   | "document"
   | "funnel"
+  | "layout-dashboard"
+  | "list-tree"
   | "message"
   | "settings"
   | "sparkles"
   | "trend"
+  | "upload"
   | "users";
 
 type NavigationItem = {
@@ -34,7 +38,12 @@ type NavigationGroup = {
 const navigationGroups: NavigationGroup[] = [
   {
     items: [
-      { id: "overview", label: "Overview", icon: "activity", href: "/" },
+      {
+        id: "overview",
+        label: "Overview",
+        icon: "layout-dashboard",
+        href: "/",
+      },
       {
         id: "ai-diagnostics",
         label: "AI Diagnostics",
@@ -62,11 +71,11 @@ const navigationGroups: NavigationGroup[] = [
   {
     label: "DATA",
     items: [
-      { label: "Events", icon: "activity", href: "#roadmap" },
+      { label: "Events", icon: "list-tree", href: "#roadmap" },
       {
         id: "data-sources",
         label: "Data Sources",
-        icon: "database",
+        icon: "upload",
         href: "/data-sources",
       },
     ],
@@ -76,6 +85,10 @@ const navigationGroups: NavigationGroup[] = [
 export type NavigationSection = "overview" | "ai-diagnostics" | "data-sources";
 
 function NavigationIcon({ name }: { name: IconName }) {
+  if (name === "upload") {
+    return <UploadIcon className="size-4 shrink-0" />;
+  }
+
   const commonProps = {
     "aria-hidden": true,
     className: "size-4 shrink-0",
@@ -85,8 +98,10 @@ function NavigationIcon({ name }: { name: IconName }) {
     viewBox: "0 0 24 24",
   };
 
-  const paths: Record<IconName, ReactNode> = {
+  const paths: Record<Exclude<IconName, "upload">, ReactNode> = {
     activity: <path d="M3 12h4l2.2-6 4.2 12 2.1-6H21" strokeLinecap="round" strokeLinejoin="round" />,
+    "layout-dashboard": <><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>,
+    "list-tree": <><path d="M8 6h13M13 12h8M13 18h8" strokeLinecap="round" /><path d="M3 6h.01M3 12h.01M3 18h.01M8 6v12M8 12h5M8 18h5" strokeLinecap="round" strokeLinejoin="round" /></>,
     sparkles: <><path d="m12 3 1.5 5.1L18.5 10l-5 1.9L12 17l-1.5-5.1-5-1.9 5-1.9L12 3Z" strokeLinejoin="round" /><path d="m19 16 .6 2.1L22 19l-2.4.9L19 22l-.6-2.1L16 19l2.4-.9L19 16Z" strokeLinejoin="round" /></>,
     trend: <><path d="M4 17 10 11l4 4 6-7" strokeLinecap="round" strokeLinejoin="round" /><path d="M15 8h5v5" strokeLinecap="round" strokeLinejoin="round" /></>,
     funnel: <path d="M4 5h16l-6.5 7.4V19l-3 1.5v-8.1L4 5Z" strokeLinejoin="round" />,

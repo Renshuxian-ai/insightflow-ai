@@ -298,9 +298,72 @@ export function SemanticSchemaReview({
   const excludedFields = currentSemanticSchema.fields.filter(
     (field) => field.resolution.status === "excluded",
   );
-  const summaryReadyFields = readyFields.filter(
-    (field) => field.resolution.status !== "edited",
+  const summaryReadyFields = currentSemanticSchema.fields.filter(
+    (field) => {
+      const understanding = understandings.get(field.stableFieldKey);
+
+      return (
+        field.resolution.status === "suggested" &&
+        understanding?.status === "ready-to-use" &&
+        understanding.origin === "system-auto-use"
+      );
+    },
   );
+  const summaryOptionalUncertainFields = currentSemanticSchema.fields.filter(
+    (field) => {
+      const understanding = understandings.get(field.stableFieldKey);
+
+      return Boolean(
+        field.resolution.status === "suggested" &&
+          understanding &&
+          !understanding.isBlocking &&
+          (understanding.status === "needs-review" ||
+            understanding.status === "meaning-unclear"),
+      );
+    },
+  );
+  const confirmedNotUsedFields = currentSemanticSchema.fields.filter(
+    (field) =>
+      field.resolution.status === "excluded" ||
+      understandings.get(field.stableFieldKey)?.status === "not-used",
+  );
+  const confirmedNotUsedKeys = new Set(
+    confirmedNotUsedFields.map((field) => field.stableFieldKey),
+  );
+  const confirmedUsableFields = currentSemanticSchema.fields.filter((field) => {
+    const understanding = understandings.get(field.stableFieldKey);
+    const hasUsableHumanMapping =
+      (field.resolution.status === "accepted" ||
+        field.resolution.status === "edited") &&
+      understanding?.effectiveMapping !== null &&
+      understanding?.effectiveMapping !== undefined &&
+      understanding.effectiveMapping.semanticType !== "unknown";
+    const hasUsableSystemMapping =
+      field.resolution.status === "suggested" &&
+      understanding?.status === "ready-to-use" &&
+      understanding.origin === "system-auto-use";
+
+    return (
+      !confirmedNotUsedKeys.has(field.stableFieldKey) &&
+      (hasUsableHumanMapping || hasUsableSystemMapping)
+    );
+  });
+  const confirmedUsableKeys = new Set(
+    confirmedUsableFields.map((field) => field.stableFieldKey),
+  );
+  const confirmedOptionalUncertainFields =
+    currentSemanticSchema.fields.filter((field) => {
+      const understanding = understandings.get(field.stableFieldKey);
+
+      return Boolean(
+        understanding &&
+          !understanding.isBlocking &&
+          !confirmedNotUsedKeys.has(field.stableFieldKey) &&
+          !confirmedUsableKeys.has(field.stableFieldKey) &&
+          (understanding.status === "needs-review" ||
+            understanding.status === "meaning-unclear"),
+      );
+    });
   const conflicts = [
     ...new Map<string, SemanticConflict>(
       currentSemanticSchema.fields.flatMap((field) =>
@@ -463,13 +526,20 @@ export function SemanticSchemaReview({
             Your dataset is ready.
           </p>
           <p className="mt-2 text-xs text-[#718479]">
-            {readyFields.length.toLocaleString()} usable field meanings ·{" "}
-            {meaningUnclearFields.length.toLocaleString()} left unsure ·{" "}
-            {notUsedFields.length.toLocaleString()} not used
+            {confirmedUsableFields.length.toLocaleString()} usable field
+            meanings ·{" "}
+            {confirmedOptionalUncertainFields.length.toLocaleString()} optional{" "}
+            {confirmedOptionalUncertainFields.length === 1
+              ? "field can"
+              : "fields can"}{" "}
+            be clarified later ·{" "}
+            {confirmedNotUsedFields.length.toLocaleString()} not used
           </p>
           <button
             type="button"
-            onClick={() => openReview(readyFields[0]?.stableFieldKey, "all")}
+            onClick={() =>
+              openReview(confirmedUsableFields[0]?.stableFieldKey, "all")
+            }
             className="mt-4 text-xs font-semibold text-[#526078] underline-offset-4 hover:text-[#263247] hover:underline"
           >
             View field meanings
@@ -742,8 +812,12 @@ export function SemanticSchemaReview({
                 Confirm field understanding
               </h3>
               <p className="mt-1 text-sm leading-5 text-[#6f798b]">
-                Review the exceptions below before confirming. Fields not shown
-                here are ready to use.
+                Review the exceptions before confirming. Optional uncertain
+                fields can be clarified later.
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[#8a94a6]">
+                Confirming means the required field meanings are reliable
+                enough to continue.
               </p>
             </div>
 
@@ -777,6 +851,29 @@ export function SemanticSchemaReview({
                       </div>
                     ))}
                   </div>
+                </section>
+              ) : null}
+
+              {summaryOptionalUncertainFields.length > 0 ? (
+                <section aria-labelledby="optional-uncertain-fields-title">
+                  <h4
+                    id="optional-uncertain-fields-title"
+                    className="text-xs font-bold uppercase tracking-[0.08em] text-[#8a5b00]"
+                  >
+                    Optional uncertain
+                  </h4>
+                  <p className="mt-1 text-sm font-medium text-[#526078]">
+                    {summaryOptionalUncertainFields.length.toLocaleString()}{" "}
+                    optional{" "}
+                    {summaryOptionalUncertainFields.length === 1
+                      ? "field can"
+                      : "fields can"}{" "}
+                    be reviewed later
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#7e8798]">
+                    These fields will not be relied on automatically until their
+                    meaning is clarified.
+                  </p>
                 </section>
               ) : null}
 
@@ -847,19 +944,27 @@ export function SemanticSchemaReview({
                 </section>
               ) : null}
 
-              <details className="rounded-xl border border-[#e4e7ee] bg-[#fafbfc]">
-                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[#526078] marker:hidden">
-                  <span className="flex items-center justify-between gap-4">
-                    <span>
-                      {summaryReadyFields.length.toLocaleString()} fields ready
-                      to use
-                    </span>
-                    <span className="text-xs font-medium text-[#8a94a6]">
-                      View all ready fields
-                    </span>
-                  </span>
-                </summary>
-                {summaryReadyFields.length > 0 ? (
+              {summaryReadyFields.length > 0 ? (
+                <section aria-labelledby="system-ready-fields-title">
+                  <h4
+                    id="system-ready-fields-title"
+                    className="text-xs font-bold uppercase tracking-[0.08em] text-[#27714b]"
+                  >
+                    Ready to use
+                  </h4>
+                  <details className="mt-2 rounded-xl border border-[#e4e7ee] bg-[#fafbfc]">
+                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[#526078] marker:hidden">
+                      <span className="flex items-center justify-between gap-4">
+                        <span>
+                          {summaryReadyFields.length.toLocaleString()}{" "}
+                          {summaryReadyFields.length === 1 ? "field" : "fields"}{" "}
+                          understood automatically
+                        </span>
+                        <span className="text-xs font-medium text-[#8a94a6]">
+                          View all ready fields
+                        </span>
+                      </span>
+                    </summary>
                   <div className="max-h-56 overflow-y-auto border-t border-[#e4e7ee]">
                     {summaryReadyFields.map((field) => (
                       <div
@@ -881,8 +986,9 @@ export function SemanticSchemaReview({
                       </div>
                     ))}
                   </div>
-                ) : null}
-              </details>
+                  </details>
+                </section>
+              ) : null}
             </div>
 
             <div className="flex flex-col-reverse gap-2 border-t border-[#edf0f4] bg-[#fafbfc] px-5 py-4 sm:flex-row sm:justify-end sm:px-6">

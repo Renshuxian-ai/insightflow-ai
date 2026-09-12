@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 
+import { UploadIcon } from "@/components/icons/upload-icon";
 import { DATASET_LIMITS } from "@/lib/datasets/constants";
 
 type DatasetUploadProps = {
@@ -181,9 +182,7 @@ export function DatasetUpload({
       >
         {fileInput}
         <div className="grid size-11 place-items-center rounded-xl border border-[#dfe4ec] bg-white text-[#526078] shadow-sm">
-          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <UploadIcon />
         </div>
         <p className="mt-4 text-sm font-semibold text-[#263247]">
           {isUploading
