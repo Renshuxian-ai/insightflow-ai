@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
 import { DATASET_LIMITS } from "@/lib/datasets/constants";
 import {
   getSemanticSchemaUnderstandings,
@@ -23,11 +21,10 @@ import { DatasetPreview } from "./dataset-preview";
 import { DatasetSchemaTable } from "./dataset-schema-table";
 import { DatasetUpload } from "./dataset-upload";
 import {
-  SemanticSchemaReview,
-  type SemanticReviewStatus,
-} from "./semantic-schema-review";
-
-type WorkspaceStatus = "idle" | "uploading" | "ready" | "error";
+  type SemanticReviewDraft,
+  useDatasetWorkspaceSession,
+} from "./dataset-workspace-session";
+import { SemanticSchemaReview } from "./semantic-schema-review";
 
 type ApiErrorPayload = {
   error?: {
@@ -39,17 +36,6 @@ type SemanticApiPayload = {
   semanticSchema?: SemanticSchema;
   autoUsePolicy?: SemanticAutoUsePolicyResult;
   fieldEvidence?: SemanticFieldReviewEvidence[];
-};
-
-type SemanticReviewDraft = {
-  snapshotId: string;
-  sheetName: string | null;
-  schemaFingerprint: string;
-  schema: SemanticSchema;
-  autoUsePolicy: SemanticAutoUsePolicyResult;
-  fieldEvidence: SemanticFieldReviewEvidence[];
-  datasetContext: string;
-  updateSequence: number;
 };
 
 const SUPPORTED_EXTENSIONS = ["csv", "xlsx"];
@@ -185,47 +171,48 @@ function getDraftReviewLabel(draft: SemanticReviewDraft): string {
 }
 
 export function DatasetWorkspace() {
-  const [status, setStatus] = useState<WorkspaceStatus>("idle");
-  const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [sourceFile, setSourceFile] = useState<File | null>(null);
-  const [sourceSnapshotId, setSourceSnapshotId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [semanticStatus, setSemanticStatus] =
-    useState<SemanticReviewStatus>("idle");
-  const [semanticSchema, setSemanticSchema] =
-    useState<SemanticSchema | null>(null);
-  const [autoUsePolicy, setAutoUsePolicy] =
-    useState<SemanticAutoUsePolicyResult | null>(null);
-  const [fieldEvidence, setFieldEvidence] = useState<
-    SemanticFieldReviewEvidence[]
-  >([]);
-  const [datasetContext, setDatasetContext] = useState("");
-  const [semanticError, setSemanticError] = useState<string | null>(null);
-  const [semanticSessionMessage, setSemanticSessionMessage] =
-    useState<string | null>(null);
-  const [currentReviewKey, setCurrentReviewKey] = useState<string | null>(null);
-  const [sheetReviewLabels, setSheetReviewLabels] = useState<
-    Record<string, string>
-  >({});
-  const requestId = useRef(0);
-  const activeRequest = useRef<AbortController | null>(null);
-  const semanticRequestId = useRef(0);
-  const activeSemanticRequest = useRef<AbortController | null>(null);
-  const snapshotSequence = useRef(0);
-  const draftUpdateSequence = useRef(0);
-  const reviewDrafts = useRef(new Map<string, SemanticReviewDraft>());
-
-  useEffect(() => {
-    return () => {
-      activeRequest.current?.abort();
-      activeSemanticRequest.current?.abort();
-    };
-  }, []);
+  const {
+    status,
+    setStatus,
+    dataset,
+    setDataset,
+    sourceFile,
+    setSourceFile,
+    sourceSnapshotId,
+    setSourceSnapshotId,
+    error,
+    setError,
+    semanticStatus,
+    setSemanticStatus,
+    semanticSchema,
+    setSemanticSchema,
+    autoUsePolicy,
+    setAutoUsePolicy,
+    fieldEvidence,
+    setFieldEvidence,
+    datasetContext,
+    setDatasetContext,
+    semanticError,
+    setSemanticError,
+    semanticSessionMessage,
+    setSemanticSessionMessage,
+    currentReviewKey,
+    setCurrentReviewKey,
+    sheetReviewLabels,
+    setSheetReviewLabels,
+    requestId: requestIdRef,
+    activeRequest: activeRequestRef,
+    semanticRequestId: semanticRequestIdRef,
+    activeSemanticRequest: activeSemanticRequestRef,
+    snapshotSequence: snapshotSequenceRef,
+    draftUpdateSequence: draftUpdateSequenceRef,
+    reviewDrafts: reviewDraftsRef,
+  } = useDatasetWorkspaceSession();
 
   function clearCurrentSemanticView(message: string | null = null) {
-    semanticRequestId.current += 1;
-    activeSemanticRequest.current?.abort();
-    activeSemanticRequest.current = null;
+    semanticRequestIdRef.current += 1;
+    activeSemanticRequestRef.current?.abort();
+    activeSemanticRequestRef.current = null;
     setSemanticSchema(null);
     setAutoUsePolicy(null);
     setFieldEvidence([]);
@@ -245,7 +232,7 @@ export function DatasetWorkspace() {
     evidence: SemanticFieldReviewEvidence[],
     context: string,
   ) {
-    draftUpdateSequence.current += 1;
+    draftUpdateSequenceRef.current += 1;
     const nextDraft: SemanticReviewDraft = {
       snapshotId,
       sheetName: physicalSchema.selectedSheetName,
@@ -254,10 +241,10 @@ export function DatasetWorkspace() {
       autoUsePolicy: policy,
       fieldEvidence: evidence,
       datasetContext: context,
-      updateSequence: draftUpdateSequence.current,
+      updateSequence: draftUpdateSequenceRef.current,
     };
 
-    reviewDrafts.current.set(reviewKey, nextDraft);
+    reviewDraftsRef.current.set(reviewKey, nextDraft);
     setSheetReviewLabels((currentLabels) => ({
       ...currentLabels,
       [createSheetReviewStatusKey(snapshotId, physicalSchema.selectedSheetName)]:
@@ -308,9 +295,9 @@ export function DatasetWorkspace() {
     context: string,
     previousDraft?: SemanticReviewDraft,
   ) {
-    const currentSemanticRequestId = semanticRequestId.current + 1;
-    semanticRequestId.current = currentSemanticRequestId;
-    activeSemanticRequest.current?.abort();
+    const currentSemanticRequestId = semanticRequestIdRef.current + 1;
+    semanticRequestIdRef.current = currentSemanticRequestId;
+    activeSemanticRequestRef.current?.abort();
 
     if (physicalSchema.fields.length === 0) {
       setSemanticSchema(null);
@@ -322,7 +309,7 @@ export function DatasetWorkspace() {
     }
 
     const controller = new AbortController();
-    activeSemanticRequest.current = controller;
+    activeSemanticRequestRef.current = controller;
     setSemanticStatus("generating");
     setSemanticError(null);
     setSemanticSessionMessage(null);
@@ -344,7 +331,7 @@ export function DatasetWorkspace() {
 
       const payload = (await response.json()) as SemanticApiPayload;
 
-      if (semanticRequestId.current !== currentSemanticRequestId) {
+      if (semanticRequestIdRef.current !== currentSemanticRequestId) {
         return;
       }
 
@@ -364,7 +351,7 @@ export function DatasetWorkspace() {
         );
       }
 
-      const latestDraft = reviewDrafts.current.get(reviewKey) ?? previousDraft;
+      const latestDraft = reviewDraftsRef.current.get(reviewKey) ?? previousDraft;
       const nextSchema = latestDraft
         ? mergeSemanticSchemaDraft(latestDraft.schema, payload.semanticSchema)
         : payload.semanticSchema;
@@ -399,12 +386,12 @@ export function DatasetWorkspace() {
     } catch (caughtError) {
       if (
         controller.signal.aborted ||
-        semanticRequestId.current !== currentSemanticRequestId
+        semanticRequestIdRef.current !== currentSemanticRequestId
       ) {
         return;
       }
 
-      const latestDraft = reviewDrafts.current.get(reviewKey) ?? previousDraft;
+      const latestDraft = reviewDraftsRef.current.get(reviewKey) ?? previousDraft;
 
       if (latestDraft) {
         setSemanticSchema(latestDraft.schema);
@@ -435,12 +422,12 @@ export function DatasetWorkspace() {
     snapshotId: string,
     sheetName?: string,
   ) {
-    const currentRequestId = requestId.current + 1;
-    requestId.current = currentRequestId;
-    activeRequest.current?.abort();
+    const currentRequestId = requestIdRef.current + 1;
+    requestIdRef.current = currentRequestId;
+    activeRequestRef.current?.abort();
 
     const controller = new AbortController();
-    activeRequest.current = controller;
+    activeRequestRef.current = controller;
     setStatus("uploading");
     setError(null);
 
@@ -464,13 +451,13 @@ export function DatasetWorkspace() {
 
       const nextDataset = (await response.json()) as Dataset;
 
-      if (requestId.current !== currentRequestId) {
+      if (requestIdRef.current !== currentRequestId) {
         return;
       }
 
       const reviewKey = createReviewKey(snapshotId, nextDataset.schema);
-      const cachedDraft = reviewDrafts.current.get(reviewKey);
-      const previousSheetDraft = [...reviewDrafts.current.values()]
+      const cachedDraft = reviewDraftsRef.current.get(reviewKey);
+      const previousSheetDraft = [...reviewDraftsRef.current.values()]
         .filter(
           (draft) =>
             draft.snapshotId === snapshotId &&
@@ -516,7 +503,10 @@ export function DatasetWorkspace() {
         "",
       );
     } catch (caughtError) {
-      if (controller.signal.aborted || requestId.current !== currentRequestId) {
+      if (
+        controller.signal.aborted ||
+        requestIdRef.current !== currentRequestId
+      ) {
         return;
       }
 
@@ -544,8 +534,8 @@ export function DatasetWorkspace() {
       return;
     }
 
-    snapshotSequence.current += 1;
-    const snapshotId = "dataset-snapshot-" + snapshotSequence.current;
+    snapshotSequenceRef.current += 1;
+    const snapshotId = "dataset-snapshot-" + snapshotSequenceRef.current;
     setSourceFile(file);
     setSourceSnapshotId(snapshotId);
     setDataset(null);
@@ -561,9 +551,9 @@ export function DatasetWorkspace() {
       return;
     }
 
-    semanticRequestId.current += 1;
-    activeSemanticRequest.current?.abort();
-    activeSemanticRequest.current = null;
+    semanticRequestIdRef.current += 1;
+    activeSemanticRequestRef.current?.abort();
+    activeSemanticRequestRef.current = null;
     setSemanticSchema(null);
     setAutoUsePolicy(null);
     setFieldEvidence([]);
@@ -575,9 +565,9 @@ export function DatasetWorkspace() {
   }
 
   function handleRemoveDataset() {
-    requestId.current += 1;
-    activeRequest.current?.abort();
-    activeRequest.current = null;
+    requestIdRef.current += 1;
+    activeRequestRef.current?.abort();
+    activeRequestRef.current = null;
     clearCurrentSemanticView(null);
     setSourceFile(null);
     setSourceSnapshotId(null);
@@ -639,7 +629,7 @@ export function DatasetWorkspace() {
       return;
     }
 
-    const previousDraft = reviewDrafts.current.get(currentReviewKey);
+    const previousDraft = reviewDraftsRef.current.get(currentReviewKey);
     void generateSemanticDraft(
       dataset.schema,
       currentReviewKey,

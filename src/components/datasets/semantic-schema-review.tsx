@@ -27,7 +27,10 @@ import type {
 } from "@/lib/datasets/semantic/types";
 import type { DatasetSchema } from "@/lib/datasets/types";
 
-import { SemanticReviewWorkspace } from "./semantic-review-workspace";
+import {
+  SemanticReviewWorkspace,
+  type SemanticReviewFilter,
+} from "./semantic-review-workspace";
 
 export type SemanticReviewStatus =
   | "idle"
@@ -108,6 +111,8 @@ export function SemanticSchemaReview({
   const [isContextEditorOpen, setIsContextEditorOpen] = useState(false);
   const [contextDraft, setContextDraft] = useState(datasetContext);
   const [isConfirmSummaryOpen, setIsConfirmSummaryOpen] = useState(false);
+  const [reviewFilter, setReviewFilter] =
+    useState<SemanticReviewFilter>("required");
 
   const shell = (content: ReactNode) => (
     <section
@@ -362,7 +367,11 @@ export function SemanticSchemaReview({
     setIsContextEditorOpen(false);
   }
 
-  function openReview(fieldKey?: string) {
+  function openReview(
+    fieldKey?: string,
+    filter: SemanticReviewFilter = "all",
+  ) {
+    setReviewFilter(filter);
     setActiveFieldKey(
       fieldKey ??
         reviewFields[0]?.stableFieldKey ??
@@ -460,7 +469,7 @@ export function SemanticSchemaReview({
           </p>
           <button
             type="button"
-            onClick={() => openReview(readyFields[0]?.stableFieldKey)}
+            onClick={() => openReview(readyFields[0]?.stableFieldKey, "all")}
             className="mt-4 text-xs font-semibold text-[#526078] underline-offset-4 hover:text-[#263247] hover:underline"
           >
             View field meanings
@@ -505,7 +514,7 @@ export function SemanticSchemaReview({
                   <button
                     type="button"
                     onClick={() =>
-                      openReview(blockingFields[0]?.stableFieldKey)
+                      openReview(blockingFields[0]?.stableFieldKey, "required")
                     }
                     className="min-h-11 w-fit rounded-lg bg-[#3559e8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]"
                   >
@@ -535,7 +544,7 @@ export function SemanticSchemaReview({
                   <button
                     type="button"
                     onClick={() =>
-                      openReview(optionalReviewFields[0]?.stableFieldKey)
+                      openReview(optionalReviewFields[0]?.stableFieldKey, "optional")
                     }
                     className="font-semibold text-[#6072b8] underline-offset-4 hover:text-[#3559e8] hover:underline"
                   >
@@ -675,7 +684,9 @@ export function SemanticSchemaReview({
               {!canConfirm && blockingFields[0] ? (
                 <button
                   type="button"
-                  onClick={() => openReview(blockingFields[0].stableFieldKey)}
+                  onClick={() =>
+                    openReview(blockingFields[0].stableFieldKey, "required")
+                  }
                   className="mt-0.5 text-xs font-medium text-[#6072b8] hover:text-[#3559e8]"
                 >
                   Review {blockingFields[0].originalName}
@@ -906,6 +917,8 @@ export function SemanticSchemaReview({
         physicalSchema={physicalSchema}
         autoUsePolicy={autoUsePolicy}
         fieldEvidence={fieldEvidence}
+        activeFilter={reviewFilter}
+        onActiveFilterChange={setReviewFilter}
         activeFieldKey={activeFieldKey}
         onActiveFieldChange={setActiveFieldKey}
         onUseSuggestion={(field) =>

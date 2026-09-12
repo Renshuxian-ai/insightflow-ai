@@ -32,27 +32,165 @@ type SemanticFieldReviewProps = {
 
 type ReviewMode = "none" | "edit";
 
-const statusPresentation = {
-  "ready-to-use": {
+type ClarificationCandidate = {
+  id: string;
+  label: string;
+  value: SemanticMappingValue;
+};
+
+function capitalizeLabel(value: string): string {
+  const trimmedValue = value.trim();
+
+  return trimmedValue
+    ? trimmedValue.charAt(0).toUpperCase() + trimmedValue.slice(1)
+    : trimmedValue;
+}
+
+function getCompositeMeaningParts(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const parts = value
+    .split(/\s+(?:or|and\/or)\s+|\s*\/\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.length >= 2 && parts.length <= 4 ? parts : [];
+}
+
+function getClarificationCandidates(
+  suggestion: NonNullable<SemanticFieldMapping["suggestion"]>,
+): ClarificationCandidate[] {
+  const candidates: ClarificationCandidate[] = [];
+  const compositeMeaningParts = getCompositeMeaningParts(
+    suggestion.businessMeaning,
+  );
+
+  if (suggestion.semanticType !== SEMANTIC_TYPE_IDS.unknown) {
+    const definition = getSemanticTypeDefinition(suggestion.semanticType);
+
+    if (compositeMeaningParts.length > 0) {
+      candidates.push({
+        id: `primary-${suggestion.semanticRole}-${suggestion.semanticType}`,
+        label: definition.label,
+        value: {
+          semanticRole: suggestion.semanticRole,
+          semanticType: suggestion.semanticType,
+          businessMeaning: definition.label,
+        },
+      });
+
+      for (const [index, part] of compositeMeaningParts.slice(1).entries()) {
+        const label = capitalizeLabel(part);
+        candidates.push({
+          id: `meaning-${index}-${label.toLowerCase()}`,
+          label,
+          value: {
+            semanticRole: suggestion.semanticRole,
+            semanticType: suggestion.semanticType,
+            businessMeaning: label,
+          },
+        });
+      }
+    } else {
+      const label = suggestion.businessMeaning ?? definition.label;
+      candidates.push({
+        id: `primary-${suggestion.semanticRole}-${suggestion.semanticType}`,
+        label,
+        value: {
+          semanticRole: suggestion.semanticRole,
+          semanticType: suggestion.semanticType,
+          businessMeaning: suggestion.businessMeaning,
+        },
+      });
+    }
+  }
+
+  for (const [index, alternative] of suggestion.alternatives.entries()) {
+    if (alternative.semanticType === SEMANTIC_TYPE_IDS.unknown) {
+      continue;
+    }
+
+    candidates.push({
+      id: `alternative-${index}-${alternative.semanticRole}-${alternative.semanticType}`,
+      label:
+        alternative.businessMeaning ??
+        getSemanticTypeDefinition(alternative.semanticType).label,
+      value: {
+        semanticRole: alternative.semanticRole,
+        semanticType: alternative.semanticType,
+        businessMeaning: alternative.businessMeaning,
+      },
+    });
+  }
+
+  const uniqueCandidates = new Map<string, ClarificationCandidate>();
+
+  for (const candidate of candidates) {
+    const key = [
+      candidate.value.semanticRole,
+      candidate.value.semanticType,
+      candidate.value.businessMeaning?.trim().toLowerCase() ?? "",
+    ].join(":");
+
+    if (!uniqueCandidates.has(key)) {
+      uniqueCandidates.set(key, candidate);
+    }
+  }
+
+  return [...uniqueCandidates.values()];
+}
+
+function getStatusPresentation(
+  mapping: SemanticFieldMapping,
+  understanding: SemanticFieldUnderstanding,
+): { label: string; className: string } {
+  if (mapping.resolution.status === "edited") {
+    return {
+      label: "Changed by you",
+      className: "bg-[#edf1ff] text-[#5269bf]",
+    };
+  }
+
+  if (mapping.resolution.status === "unresolved") {
+    return {
+      label: "Unresolved",
+      className: "bg-[#fff6df] text-[#8a5b00]",
+    };
+  }
+
+  if (
+    mapping.resolution.status === "excluded" ||
+    understanding.status === "not-used"
+  ) {
+    return {
+      label: "Not used",
+      className: "bg-[#f1f3f7] text-[#657084]",
+    };
+  }
+
+  if (understanding.isBlocking) {
+    return {
+      label: "Required",
+      className: "bg-[#fff0ef] text-[#a44848]",
+    };
+  }
+
+  if (
+    understanding.status === "needs-review" ||
+    understanding.status === "meaning-unclear"
+  ) {
+    return {
+      label: "Optional review",
+      className: "bg-[#fff6df] text-[#8a5b00]",
+    };
+  }
+
+  return {
     label: "Ready to use",
     className: "bg-[#eaf8f0] text-[#27714b]",
-  },
-  "needs-review": {
-    label: "Needs your review",
-    className: "bg-[#fff6df] text-[#8a5b00]",
-  },
-  "meaning-unclear": {
-    label: "Meaning unclear",
-    className: "bg-[#fff0ef] text-[#a44848]",
-  },
-  "not-used": {
-    label: "Not used",
-    className: "bg-[#f1f3f7] text-[#657084]",
-  },
-} as const;
-
-function formatPhysicalType(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  };
 }
 
 function formatPercent(value: number): string {
@@ -105,22 +243,76 @@ function getMeaningLabel(
   );
 }
 
-function getInferenceSourceLabel(
-  source: SemanticFieldMapping["suggestion"] extends infer Suggestion
-    ? Suggestion extends { inferenceSource: infer Source }
-      ? Source
-      : never
-    : never,
+function getAnalysisArea(
+  suggestion: SemanticFieldMapping["suggestion"],
 ): string {
-  if (source === "ai") {
-    return "AI suggestion";
+  switch (suggestion?.semanticRole) {
+    case "time":
+      return "time-based analysis";
+    case "identifier":
+      return "user or session analysis";
+    case "measure":
+    case "outcome":
+      return "metric analysis";
+    case "dimension":
+    case "classification":
+      return "segmentation and comparison";
+    case "text":
+      return "feedback analysis";
+    default:
+      return "future analysis";
+  }
+}
+
+function getFieldSummary(
+  mapping: SemanticFieldMapping,
+  understanding: SemanticFieldUnderstanding,
+  requiresClarification: boolean,
+): string {
+  const analysisArea = getAnalysisArea(mapping.suggestion);
+
+  if (understanding.isBlocking) {
+    return requiresClarification
+      ? "This field may be used for " +
+          analysisArea +
+          ", but its exact meaning is unclear."
+      : "This field may affect " +
+          analysisArea +
+          ", but it needs your input before it can be used safely.";
   }
 
-  if (source === "heuristic") {
-    return "Deterministic heuristic";
+  if (understanding.status === "meaning-unclear") {
+    return "The available information does not point to one reliable field meaning.";
   }
 
-  return "Deterministic mock suggestion";
+  if (understanding.status === "needs-review") {
+    return "The system found a possible meaning. You can review it if this field matters to your analysis.";
+  }
+
+  if (understanding.status === "not-used") {
+    return "This field will not be used in future analysis.";
+  }
+
+  return "The system has enough evidence to use this field meaning.";
+}
+
+function getWhyInput(
+  understanding: SemanticFieldUnderstanding,
+  requiresClarification: boolean,
+): string {
+  if (requiresClarification) {
+    return "The available data cannot reliably distinguish between the suggested meanings.";
+  }
+
+  if (understanding.conflicts.length > 0) {
+    return "Another field may serve the same analytical purpose, so the intended field needs confirmation.";
+  }
+
+  if (understanding.status === "meaning-unclear") {
+    return "The field name and available examples are not enough to determine a reliable meaning.";
+  }
+
+  return "The available evidence is not strong enough to use this meaning without your input.";
 }
 
 function SafeStatistics({
@@ -179,7 +371,6 @@ function SafeStatistics({
 
 export function SemanticFieldReview({
   mapping,
-  physicalField,
   understanding,
   evidence,
   readOnly,
@@ -199,12 +390,33 @@ export function SemanticFieldReview({
     initialValue.businessMeaning ?? "",
   );
   const suggestion = mapping.suggestion;
-  const presentation = statusPresentation[understanding.status];
+  const presentation = getStatusPresentation(mapping, understanding);
   const hasReliableSuggestion = Boolean(
     suggestion && suggestion.semanticType !== SEMANTIC_TYPE_IDS.unknown,
   );
   const hasHumanDecision = mapping.resolution.status !== "suggested";
   const isHumanOverride = mapping.resolution.status === "edited";
+  const compositeMeaningParts = getCompositeMeaningParts(
+    suggestion?.businessMeaning ?? null,
+  );
+  const requiresClarification = Boolean(
+    understanding.isBlocking &&
+      mapping.resolution.status === "suggested" &&
+      suggestion &&
+      (suggestion.ambiguity ||
+        suggestion.alternatives.length > 0 ||
+        compositeMeaningParts.length > 0),
+  );
+  const clarificationCandidates = suggestion
+    ? getClarificationCandidates(suggestion)
+    : [];
+  const hasClarificationChoices =
+    requiresClarification && clarificationCandidates.length >= 2;
+  const fieldSummary = getFieldSummary(
+    mapping,
+    understanding,
+    requiresClarification,
+  );
   const availableMeanings = useMemo(
     () =>
       Object.values(semanticTypeRegistry).filter(
@@ -274,19 +486,25 @@ export function SemanticFieldReview({
             <h3 className="mt-1 break-all font-mono text-lg font-semibold text-[#202b3c]">
               {mapping.originalName}
             </h3>
-            <p className="mt-1 text-xs text-[#8a94a6]">
-              Detected type · {formatPhysicalType(physicalField.detectedType)}
-              {understanding.isCritical ? " · Important for analysis" : ""}
+            <p className="mt-1 max-w-xl text-xs leading-5 text-[#657084]">
+              {fieldSummary}
             </p>
           </div>
-          <span
-            className={[
-              "w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
-              presentation.className,
-            ].join(" ")}
-          >
-            {presentation.label}
-          </span>
+          <div className="flex shrink-0 flex-wrap gap-1.5">
+            <span
+              className={[
+                "w-fit rounded-full px-2.5 py-1 text-xs font-semibold",
+                presentation.className,
+              ].join(" ")}
+            >
+              {presentation.label}
+            </span>
+            {understanding.isBlocking && presentation.label !== "Required" ? (
+              <span className="w-fit rounded-full bg-[#fff0ef] px-2.5 py-1 text-xs font-semibold text-[#a44848]">
+                Required
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -304,8 +522,8 @@ export function SemanticFieldReview({
             </p>
           ) : understanding.status === "meaning-unclear" ? (
             <p className="mt-1 max-w-xl text-xs leading-5 text-[#765c25]">
-              Available schema information is insufficient to determine this
-              field&apos;s business meaning.
+              The field name and available examples are not enough to determine
+              a reliable meaning.
             </p>
           ) : null}
         </div>
@@ -327,56 +545,49 @@ export function SemanticFieldReview({
           </summary>
           <div className="mt-3 space-y-3 text-xs leading-5 text-[#657084]">
             {suggestion ? (
-              <>
-                <p>{suggestion.explanation}</p>
-                <p className="text-[#8a94a6]">
-                  Source · {getInferenceSourceLabel(suggestion.inferenceSource)}
-                </p>
-              </>
-            ) : (
-              <p>No reliable field meaning was suggested.</p>
-            )}
-
-            {understanding.reasons.map((reason) => (
-              <p key={reason}>{reason}</p>
-            ))}
-
-            {suggestion?.ambiguity ? (
-              <p className="rounded-lg bg-[#fffaf0] px-3 py-2 text-[#765c25]">
-                {suggestion.ambiguity}
-              </p>
-            ) : null}
-
-            {suggestion && suggestion.alternatives.length > 0 ? (
               <div>
                 <p className="font-semibold text-[#526078]">
-                  Other possible meanings
+                  Why AI thinks this
                 </p>
-                <ul className="mt-1.5 space-y-1.5">
-                  {suggestion.alternatives.map((alternative) => (
-                    <li
-                      key={
-                        alternative.semanticRole +
-                        "-" +
-                        alternative.semanticType
-                      }
-                      className="rounded-md bg-[#f7f8fa] px-2.5 py-2"
-                    >
-                      {getSemanticTypeDefinition(alternative.semanticType).label}
-                      {alternative.businessMeaning
-                        ? " · " + alternative.businessMeaning
-                        : ""}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-1">
+                  The field name <code>{mapping.originalName}</code> and the
+                  available examples suggest &ldquo;
+                  {suggestion.businessMeaning ??
+                    getSemanticTypeDefinition(suggestion.semanticType).label}
+                  &rdquo;.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold text-[#526078]">
+                  Why AI thinks this
+                </p>
+                <p className="mt-1">
+                  The field name and available examples do not point to one
+                  reliable business meaning.
+                </p>
+              </div>
+            )}
+
+            {understanding.isBlocking ? (
+              <div>
+                <p className="font-semibold text-[#526078]">
+                  Why we need your input
+                </p>
+                <p className="mt-1">
+                  {getWhyInput(understanding, requiresClarification)}
+                </p>
               </div>
             ) : null}
 
-            {understanding.conflicts.length > 0 ? (
-              <div className="rounded-lg border border-[#f1dfb8] bg-[#fffaf0] px-3 py-2 text-[#765c25]">
-                {understanding.conflicts.map((conflict) => (
-                  <p key={conflict.id}>{conflict.message}</p>
-                ))}
+            {understanding.isCritical || understanding.isBlocking ? (
+              <div>
+                <p className="font-semibold text-[#526078]">
+                  Why it matters
+                </p>
+                <p className="mt-1">
+                  Getting this field right affects {getAnalysisArea(suggestion)}.
+                </p>
               </div>
             ) : null}
           </div>
@@ -427,7 +638,81 @@ export function SemanticFieldReview({
           </div>
         </details>
 
-        {!readOnly && reviewMode === "none" ? (
+        {!readOnly && reviewMode === "none" && requiresClarification ? (
+          <div className="mt-4 border-t border-[#edf0f4] pt-4">
+            {hasClarificationChoices ? (
+              <>
+                <p className="text-sm font-semibold text-[#263247]">
+                  What does <code>{mapping.originalName}</code> represent?
+                </p>
+                <div className="mt-3 grid gap-2 sm:max-w-xl">
+                  {clarificationCandidates.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      onClick={() => onEdit(candidate.value)}
+                      className="flex min-h-10 items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#344056] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff]"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="mr-2.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#aab4c5]"
+                      />
+                      {candidate.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={openEditor}
+                    className="flex min-h-10 items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#526078] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff] hover:text-[#263247]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="mr-2.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#aab4c5]"
+                    />
+                    Something else
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-[#263247]">
+                  This required field needs a clearer meaning.
+                </p>
+                <button
+                  type="button"
+                  onClick={openEditor}
+                  className="mt-3 rounded-lg bg-[#3559e8] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2949ca]"
+                >
+                  Define meaning
+                </button>
+              </>
+            )}
+
+            <details className="relative mt-3 w-fit">
+              <summary className="cursor-pointer list-none px-2 py-2 text-xs font-semibold text-[#7e8798] marker:hidden hover:text-[#263247]">
+                More actions
+              </summary>
+              <div className="absolute left-0 z-10 mt-1 w-48 rounded-lg border border-[#dfe4ec] bg-white p-1.5 shadow-lg">
+                <button
+                  type="button"
+                  onClick={onMarkUnresolved}
+                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
+                >
+                  I&apos;m not sure yet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onExclude("")}
+                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
+                >
+                  Don&apos;t use this field
+                </button>
+              </div>
+            </details>
+          </div>
+        ) : null}
+
+        {!readOnly && reviewMode === "none" && !requiresClarification ? (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#edf0f4] pt-4">
             {understanding.status === "needs-review" &&
             hasReliableSuggestion ? (
@@ -497,7 +782,7 @@ export function SemanticFieldReview({
                 onClick={onResetDecision}
                 className="w-full pt-1 text-left text-xs font-medium text-[#7e8798] underline-offset-4 hover:text-[#526078] hover:underline"
               >
-                Use original suggestion again
+                Undo my change
               </button>
             ) : null}
           </div>

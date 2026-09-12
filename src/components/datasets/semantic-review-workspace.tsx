@@ -25,9 +25,10 @@ import type { DatasetSchema } from "@/lib/datasets/types";
 
 import { SemanticFieldReview } from "./semantic-field-review";
 
-type ReviewFilter =
-  | "needs-review"
-  | "reviewed-changed"
+export type SemanticReviewFilter =
+  | "required"
+  | "optional"
+  | "changed-by-you"
   | "unresolved"
   | "all";
 
@@ -40,6 +41,8 @@ export type SemanticReviewWorkspaceProps = {
   physicalSchema: DatasetSchema;
   autoUsePolicy: SemanticAutoUsePolicyResult;
   fieldEvidence: SemanticFieldReviewEvidence[];
+  activeFilter: SemanticReviewFilter;
+  onActiveFilterChange: (filter: SemanticReviewFilter) => void;
   activeFieldKey: string | null;
   onActiveFieldChange: (stableFieldKey: string | null) => void;
   onUseSuggestion: (field: SemanticFieldMapping) => void;
@@ -52,9 +55,13 @@ export type SemanticReviewWorkspaceProps = {
   onResetDecision: (field: SemanticFieldMapping) => void;
 };
 
-const filterOptions: Array<{ value: ReviewFilter; label: string }> = [
-  { value: "needs-review", label: "Needs review" },
-  { value: "reviewed-changed", label: "Reviewed & changed" },
+const filterOptions: Array<{
+  value: SemanticReviewFilter;
+  label: string;
+}> = [
+  { value: "required", label: "Required" },
+  { value: "optional", label: "Optional" },
+  { value: "changed-by-you", label: "Changed by you" },
   { value: "unresolved", label: "Unresolved" },
   { value: "all", label: "All" },
 ];
@@ -63,25 +70,12 @@ function getFieldStatus(
   field: SemanticFieldMapping,
   understanding: SemanticFieldUnderstanding,
 ): { label: string; className: string } {
-  if (understanding.isBlocking) {
-    return {
-      label:
-        field.resolution.status === "unresolved"
-          ? "Left unsure · review required"
-          : "Needs your review",
-      className: "bg-[#fff0ef] text-[#a44848]",
-    };
-  }
-
   switch (field.resolution.status) {
     case "accepted":
-      return {
-        label: "Reviewed",
-        className: "bg-[#eaf8f0] text-[#27714b]",
-      };
+      break;
     case "edited":
       return {
-        label: "Changed",
+        label: "Changed by you",
         className: "bg-[#edf1ff] text-[#5269bf]",
       };
     case "excluded":
@@ -91,35 +85,40 @@ function getFieldStatus(
       };
     case "unresolved":
       return {
-        label: "Left unsure",
+        label: "Unresolved",
         className: "bg-[#fff6df] text-[#8a5b00]",
       };
     case "suggested":
-      if (understanding.status === "ready-to-use") {
-        return {
-          label: "Ready to use",
-          className: "bg-[#eaf8f0] text-[#27714b]",
-        };
-      }
-
-      if (understanding.status === "meaning-unclear") {
-        return {
-          label: "Meaning unclear",
-          className: "bg-[#fff0ef] text-[#a44848]",
-        };
-      }
-
-      return {
-        label: "Needs your review",
-        className: "bg-[#fff6df] text-[#8a5b00]",
-      };
+      break;
   }
+
+  if (understanding.isBlocking) {
+    return {
+      label: "Required",
+      className: "bg-[#fff0ef] text-[#a44848]",
+    };
+  }
+
+  if (
+    understanding.status === "needs-review" ||
+    understanding.status === "meaning-unclear"
+  ) {
+    return {
+      label: "Optional",
+      className: "bg-[#fff6df] text-[#8a5b00]",
+    };
+  }
+
+  return {
+    label: "Ready to use",
+    className: "bg-[#eaf8f0] text-[#27714b]",
+  };
 }
 
 function isFieldInFilter(
   field: SemanticFieldMapping,
   understanding: SemanticFieldUnderstanding,
-  filter: ReviewFilter,
+  filter: SemanticReviewFilter,
 ): boolean {
   if (filter === "all") {
     return true;
@@ -129,18 +128,19 @@ function isFieldInFilter(
     return field.resolution.status === "unresolved";
   }
 
-  if (filter === "reviewed-changed") {
-    return (
-      field.resolution.status === "accepted" ||
-      field.resolution.status === "edited" ||
-      field.resolution.status === "excluded"
-    );
+  if (filter === "changed-by-you") {
+    return field.resolution.status === "edited";
   }
 
-  return (
-    understanding.status === "needs-review" ||
-    (field.resolution.status === "suggested" &&
-      understanding.status === "meaning-unclear")
+  if (filter === "required") {
+    return understanding.isBlocking;
+  }
+
+  return Boolean(
+    field.resolution.status === "suggested" &&
+      !understanding.isBlocking &&
+      (understanding.status === "needs-review" ||
+        understanding.status === "meaning-unclear"),
   );
 }
 
@@ -173,6 +173,8 @@ export function SemanticReviewWorkspace({
   physicalSchema,
   autoUsePolicy,
   fieldEvidence,
+  activeFilter,
+  onActiveFilterChange,
   activeFieldKey,
   onActiveFieldChange,
   onUseSuggestion,
@@ -183,8 +185,6 @@ export function SemanticReviewWorkspace({
 }: SemanticReviewWorkspaceProps) {
   const { setFocusMode } = useAppShellState();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] =
-    useState<ReviewFilter>("needs-review");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -205,19 +205,6 @@ export function SemanticReviewWorkspace({
         fieldEvidence.map((evidence) => [evidence.stableFieldKey, evidence]),
       ),
     [fieldEvidence],
-  );
-
-  const reviewFields = useMemo(
-    () =>
-      schema.fields.filter((field) => {
-        const understanding = understandings.get(field.stableFieldKey);
-
-        return (
-          understanding &&
-          isFieldInFilter(field, understanding, "needs-review")
-        );
-      }),
-    [schema.fields, understandings],
   );
 
   const normalizedSearch = normalizeSearchValue(searchQuery);
@@ -246,10 +233,16 @@ export function SemanticReviewWorkspace({
 
   const selectedField = useMemo(
     () =>
-      schema.fields.find(
-        (field) => field.stableFieldKey === activeFieldKey,
-      ) ?? null,
-    [activeFieldKey, schema.fields],
+      schema.fields.find((field) => {
+        const understanding = understandings.get(field.stableFieldKey);
+
+        return Boolean(
+          field.stableFieldKey === activeFieldKey &&
+            understanding &&
+            isFieldInFilter(field, understanding, activeFilter),
+        );
+      }) ?? null,
+    [activeFieldKey, activeFilter, schema.fields, understandings],
   );
   const selectedUnderstanding = selectedField
     ? (understandings.get(selectedField.stableFieldKey) ?? null)
@@ -260,6 +253,16 @@ export function SemanticReviewWorkspace({
   const selectedEvidence = selectedField
     ? (evidenceByKey.get(selectedField.stableFieldKey) ?? null)
     : null;
+  const requiredFields = schema.fields.filter(
+    (field) => understandings.get(field.stableFieldKey)?.isBlocking,
+  );
+  const optionalFields = schema.fields.filter((field) => {
+    const understanding = understandings.get(field.stableFieldKey);
+
+    return Boolean(
+      understanding && isFieldInFilter(field, understanding, "optional"),
+    );
+  });
 
   const requestDiscard = useCallback(() => {
     if (!hasUnsavedChanges) {
@@ -295,6 +298,24 @@ export function SemanticReviewWorkspace({
     },
     [activeFieldKey, onActiveFieldChange, requestDiscard],
   );
+
+  function requestFilterChange(nextFilter: SemanticReviewFilter) {
+    if (nextFilter === activeFilter || !requestDiscard()) {
+      return;
+    }
+
+    const nextField = schema.fields.find((field) => {
+      const understanding = understandings.get(field.stableFieldKey);
+
+      return Boolean(
+        understanding && isFieldInFilter(field, understanding, nextFilter),
+      );
+    });
+
+    setHasUnsavedChanges(false);
+    onActiveFilterChange(nextFilter);
+    onActiveFieldChange(nextField?.stableFieldKey ?? null);
+  }
 
   useEffect(() => {
     setFocusMode(isOpen && isExpanded);
@@ -356,33 +377,38 @@ export function SemanticReviewWorkspace({
       return;
     }
 
-    onActiveFieldChange(
-      reviewFields[0]?.stableFieldKey ?? schema.fields[0]?.stableFieldKey ?? null,
-    );
-  }, [isOpen, onActiveFieldChange, reviewFields, schema.fields, selectedField]);
+    onActiveFieldChange(visibleFields[0]?.stableFieldKey ?? null);
+  }, [isOpen, onActiveFieldChange, selectedField, visibleFields]);
 
   if (!isOpen) {
     return null;
   }
 
   function advanceAfterDecision(currentField: SemanticFieldMapping) {
-    const currentIndex = reviewFields.findIndex(
+    const activeTaskFields = schema.fields.filter((field) => {
+      const understanding = understandings.get(field.stableFieldKey);
+
+      return Boolean(
+        understanding && isFieldInFilter(field, understanding, activeFilter),
+      );
+    });
+    const currentIndex = activeTaskFields.findIndex(
       (field) => field.stableFieldKey === currentField.stableFieldKey,
     );
-    const remainingReviewFields = reviewFields.filter(
+    const remainingTaskFields = activeTaskFields.filter(
       (field) => field.stableFieldKey !== currentField.stableFieldKey,
     );
     const nextField =
-      remainingReviewFields.find(
+      remainingTaskFields.find(
         (field) => field.fieldIndex > currentField.fieldIndex,
       ) ??
-      remainingReviewFields[0] ??
+      remainingTaskFields[0] ??
       null;
 
     setHasUnsavedChanges(false);
 
-    if (currentIndex >= 0 && nextField) {
-      onActiveFieldChange(nextField.stableFieldKey);
+    if (currentIndex >= 0) {
+      onActiveFieldChange(nextField?.stableFieldKey ?? null);
     }
   }
 
@@ -417,8 +443,6 @@ export function SemanticReviewWorkspace({
   const dialogClassName = isExpanded
     ? "h-dvh w-full rounded-none"
     : "h-[min(46rem,calc(100dvh-2rem))] w-full max-w-5xl rounded-2xl sm:h-[min(46rem,calc(100dvh-3rem))]";
-  const remainingReviewCount = reviewFields.length;
-
   return (
     <div
       className={`fixed inset-0 z-[70] flex bg-[#172033]/35 ${
@@ -549,7 +573,7 @@ export function SemanticReviewWorkspace({
                       key={option.value}
                       type="button"
                       aria-pressed={isActive}
-                      onClick={() => setActiveFilter(option.value)}
+                      onClick={() => requestFilterChange(option.value)}
                       className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
                         isActive
                           ? "bg-[#e9edff] text-[#3559e8]"
@@ -598,10 +622,18 @@ export function SemanticReviewWorkspace({
                           <span className="mt-1 block truncate text-[11px] text-[#778196]">
                             {getFieldMeaning(field, understanding)}
                           </span>
-                          <span
-                            className={`mt-2 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.className}`}
-                          >
-                            {status.label}
+                          <span className="mt-2 flex flex-wrap gap-1">
+                            <span
+                              className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.className}`}
+                            >
+                              {status.label}
+                            </span>
+                            {understanding.isBlocking &&
+                            status.label !== "Required" ? (
+                              <span className="inline-flex rounded bg-[#fff0ef] px-1.5 py-0.5 text-[10px] font-semibold text-[#a44848]">
+                                Required
+                              </span>
+                            ) : null}
                           </span>
                         </button>
                       </li>
@@ -611,10 +643,14 @@ export function SemanticReviewWorkspace({
               ) : (
                 <div className="px-3 py-8 text-center">
                   <p className="text-xs font-semibold text-[#526078]">
-                    No matching fields
+                    {activeFilter === "required" && requiredFields.length === 0
+                      ? "All required fields are resolved"
+                      : "No matching fields"}
                   </p>
                   <p className="mt-1 text-[11px] leading-5 text-[#8a94a6]">
-                    Try another search or field status.
+                    {activeFilter === "required" && requiredFields.length === 0
+                      ? "Optional fields remain available when you choose to review them."
+                      : "Try another search or field status."}
                   </p>
                 </div>
               )}
@@ -622,7 +658,29 @@ export function SemanticReviewWorkspace({
           </aside>
 
           <main className="min-h-0 overflow-y-auto bg-[#f7f8fa] p-3.5 sm:p-5">
-            {selectedField &&
+            {activeFilter === "required" && requiredFields.length === 0 ? (
+              <div className="grid h-full min-h-52 place-items-center">
+                <div className="max-w-sm text-center">
+                  <p className="text-base font-semibold text-[#263247]">
+                    All required fields are resolved
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-[#7e8798]">
+                    {optionalFields.length > 0
+                      ? "You can review optional fields now or finish for now."
+                      : "You can finish for now."}
+                  </p>
+                  {optionalFields.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => requestFilterChange("optional")}
+                      className="mt-3 px-2 py-2 text-xs font-semibold text-[#6072b8] underline-offset-4 hover:text-[#3559e8] hover:underline"
+                    >
+                      Review optional fields
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : selectedField &&
             selectedUnderstanding &&
             selectedPhysicalField ? (
               <div className="mx-auto max-w-3xl">
@@ -659,20 +717,20 @@ export function SemanticReviewWorkspace({
         </div>
 
         <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-[#e6e9ef] bg-white px-4 py-3 sm:px-5">
-          <p className="text-xs text-[#778196]" aria-live="polite">
-            {remainingReviewCount === 0
-              ? "No fields currently need review."
-              : `${remainingReviewCount} ${
-                  remainingReviewCount === 1 ? "field still needs" : "fields still need"
-                } your review.`}
-          </p>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="shrink-0 rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca]"
-          >
-            Done for now
-          </button>
+          <div className="text-xs text-[#778196]" aria-live="polite">
+            <p className="font-medium text-[#526078]">
+              {requiredFields.length === 0
+                ? "No required fields remaining"
+                : `${requiredFields.length} required ${
+                    requiredFields.length === 1 ? "field" : "fields"
+                  } remaining`}
+            </p>
+            {optionalFields.length > 0 ? (
+              <p className="mt-0.5">
+                {optionalFields.length} optional {optionalFields.length === 1 ? "field" : "fields"} can be reviewed later
+              </p>
+            ) : null}
+          </div>
         </footer>
       </section>
     </div>

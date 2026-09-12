@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { DatasetWorkspaceSessionProvider } from "@/components/datasets/dataset-workspace-session";
 import { AppShellStateProvider } from "@/components/layout/app-shell-state";
 
 import "./globals.css";
@@ -28,7 +29,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AppShellStateProvider>{children}</AppShellStateProvider>
+        <AppShellStateProvider>
+          <DatasetWorkspaceSessionProvider>
+            {children}
+          </DatasetWorkspaceSessionProvider>
+        </AppShellStateProvider>
       </body>
     </html>
   );
