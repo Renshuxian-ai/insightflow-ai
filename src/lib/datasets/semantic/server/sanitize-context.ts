@@ -13,6 +13,7 @@ import type {
 const MAX_CONTEXT_SAMPLES = 3;
 const MAX_SAMPLE_TEXT_LENGTH = 80;
 const MAX_FIELD_NAME_LENGTH = 120;
+const MAX_DATASET_CONTEXT_LENGTH = 600;
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s().-]{6,}\d)/;
@@ -45,7 +46,7 @@ export function sanitizeFieldName(value: string): string {
   return sanitized || "Unnamed field";
 }
 
-function isSensitiveText(value: string): boolean {
+function isSensitiveText(value: string, allowLongText = false): boolean {
   return (
     EMAIL_PATTERN.test(value) ||
     PHONE_PATTERN.test(value) ||
@@ -55,8 +56,32 @@ function isSensitiveText(value: string): boolean {
     SECRET_PATTERN.test(value) ||
     HIGH_ENTROPY_TOKEN_PATTERN.test(value) ||
     ADDRESS_PATTERN.test(value) ||
-    value.length > MAX_SAMPLE_TEXT_LENGTH
+    (!allowLongText && value.length > MAX_SAMPLE_TEXT_LENGTH)
   );
+}
+
+export function sanitizeDatasetContext(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    !normalized ||
+    normalized.length > MAX_DATASET_CONTEXT_LENGTH ||
+    isSensitiveText(normalized, true)
+  ) {
+    return null;
+  }
+
+  return normalized;
 }
 
 function sanitizeSampleValue(value: unknown): SanitizedSampleValue | null {

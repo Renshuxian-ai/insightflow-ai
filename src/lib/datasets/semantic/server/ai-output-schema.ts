@@ -489,6 +489,22 @@ export function validateSemanticAiSuggestionOutput(
   return suggestions;
 }
 
+export function unwrapSemanticAiSuggestionResponse(value: unknown): unknown {
+  const response = readRecord(value, "semanticAiResponse");
+  assertAllowedKeys(response, ["suggestions"], "semanticAiResponse");
+
+  if (!Object.prototype.hasOwnProperty.call(response, "suggestions")) {
+    failValidation(
+      "semanticAiResponse.suggestions",
+      "missing field.",
+      "array",
+      undefined,
+    );
+  }
+
+  return response.suggestions;
+}
+
 export function stampSemanticAiSuggestions(
   outputs: readonly SemanticAiSuggestionOutput[],
 ): SemanticSuggestion[] {
