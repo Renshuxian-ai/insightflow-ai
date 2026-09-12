@@ -21,6 +21,11 @@ export type SemanticType = RegisteredSemanticType;
 
 export type SemanticInferenceSource = "heuristic" | "mock" | "ai";
 
+export type SemanticInferenceMode =
+  | "ai"
+  | "ai-assisted"
+  | "deterministic-fallback";
+
 export type SemanticMappingValue = {
   semanticRole: SemanticRole;
   semanticType: SemanticType;
@@ -43,11 +48,11 @@ export type SemanticSuggestion = SemanticMappingValue & {
 };
 
 /**
- * Model-controlled fields only. The server stamps the SemanticSuggestion id
- * and inferenceSource after this output has passed runtime validation.
+ * Validated AI raw-output fields. For known semantic types, the server derives
+ * semanticRole from the registry before stamping trusted suggestion metadata.
  */
 export type SemanticAiAlternativeOutput = {
-  semanticRole: SemanticRole;
+  semanticRole?: SemanticRole;
   semanticType: SemanticType;
   businessMeaning: string | null;
   semanticConfidence: number;
@@ -56,7 +61,7 @@ export type SemanticAiAlternativeOutput = {
 
 export type SemanticAiSuggestionOutput = {
   stableFieldKey: string;
-  semanticRole: SemanticRole;
+  semanticRole?: SemanticRole;
   semanticType: SemanticType;
   businessMeaning: string | null;
   semanticConfidence: number;

@@ -9,6 +9,8 @@ import type {
 export const defaultInvestigationModelId: InvestigationModelId =
   "mock-prototype";
 
+export const defaultSemanticAiModelId: AIModelId = "deepseek-v3";
+
 export const aiModelRegistry: Record<AIModelId, AIModelDefinition> = {
   "mock-prototype": {
     id: "mock-prototype",

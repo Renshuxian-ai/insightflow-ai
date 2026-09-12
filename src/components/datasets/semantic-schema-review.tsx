@@ -22,6 +22,7 @@ import type {
   SemanticConflict,
   SemanticFieldMapping,
   SemanticFieldReviewEvidence,
+  SemanticInferenceMode,
   SemanticMappingValue,
   SemanticSchema,
 } from "@/lib/datasets/semantic/types";
@@ -47,6 +48,7 @@ type SemanticSchemaReviewProps = {
   status: SemanticReviewStatus;
   error: string | null;
   sessionMessage: string | null;
+  inferenceMode: SemanticInferenceMode | null;
   datasetContext: string;
   onDatasetContextChange: (value: string) => void;
   onRetry: () => void;
@@ -98,6 +100,7 @@ export function SemanticSchemaReview({
   status,
   error,
   sessionMessage,
+  inferenceMode,
   datasetContext,
   onDatasetContextChange,
   onRetry,
@@ -106,6 +109,8 @@ export function SemanticSchemaReview({
 }: SemanticSchemaReviewProps) {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isReviewExpanded, setIsReviewExpanded] = useState(false);
+  const [isEditingConfirmedSchema, setIsEditingConfirmedSchema] =
+    useState(false);
   const [activeFieldKey, setActiveFieldKey] = useState<string | null>(null);
   const [controllerError, setControllerError] = useState<string | null>(null);
   const [isContextEditorOpen, setIsContextEditorOpen] = useState(false);
@@ -137,9 +142,15 @@ export function SemanticSchemaReview({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-[#5269bf]">
-              Mock understanding
-            </span>
+            {inferenceMode ? (
+              <span className="rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-[#5269bf]">
+                {inferenceMode === "ai"
+                  ? "AI understanding"
+                  : inferenceMode === "ai-assisted"
+                    ? "AI-assisted understanding"
+                    : "System understanding"}
+              </span>
+            ) : null}
             <span className="rounded-md bg-[#f1f3f7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-[#778196]">
               Session only
             </span>
@@ -404,7 +415,12 @@ export function SemanticSchemaReview({
     currentSemanticSchema,
     currentAutoUsePolicy,
   );
-  const readOnly = currentSemanticSchema.status === "confirmed";
+  const isSchemaConfirmed = currentSemanticSchema.status === "confirmed";
+  const readOnly = isSchemaConfirmed && !isEditingConfirmedSchema;
+  const reviewWorkspaceSchema =
+    isSchemaConfirmed && isEditingConfirmedSchema
+      ? { ...currentSemanticSchema, status: "in-review" as const }
+      : currentSemanticSchema;
   const savedContext = datasetContext.trim();
   const normalizedContextDraft = contextDraft.trim();
   const canSaveContext =
@@ -443,6 +459,11 @@ export function SemanticSchemaReview({
     );
     setIsReviewOpen(true);
     setControllerError(null);
+  }
+
+  function openConfirmedReview(editable: boolean) {
+    setIsEditingConfirmedSchema(editable);
+    openReview(confirmedUsableFields[0]?.stableFieldKey, "all");
   }
 
   function updateField(
@@ -505,6 +526,7 @@ export function SemanticSchemaReview({
       setIsConfirmSummaryOpen(false);
       setIsReviewOpen(false);
       setIsReviewExpanded(false);
+      setIsEditingConfirmedSchema(false);
       setControllerError(null);
     } catch (caughtError) {
       setControllerError(
@@ -535,15 +557,22 @@ export function SemanticSchemaReview({
             be clarified later ·{" "}
             {confirmedNotUsedFields.length.toLocaleString()} not used
           </p>
-          <button
-            type="button"
-            onClick={() =>
-              openReview(confirmedUsableFields[0]?.stableFieldKey, "all")
-            }
-            className="mt-4 text-xs font-semibold text-[#526078] underline-offset-4 hover:text-[#263247] hover:underline"
-          >
-            View field meanings
-          </button>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button
+              type="button"
+              onClick={() => openConfirmedReview(false)}
+              className="text-xs font-semibold text-[#526078] underline-offset-4 hover:text-[#263247] hover:underline"
+            >
+              View field meanings
+            </button>
+            <button
+              type="button"
+              onClick={() => openConfirmedReview(true)}
+              className="text-xs font-semibold text-[#6072b8] underline-offset-4 hover:text-[#3559e8] hover:underline"
+            >
+              Edit field meanings
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -1018,8 +1047,9 @@ export function SemanticSchemaReview({
         onRequestClose={() => {
           setIsReviewOpen(false);
           setIsReviewExpanded(false);
+          setIsEditingConfirmedSchema(false);
         }}
-        schema={currentSemanticSchema}
+        schema={reviewWorkspaceSchema}
         physicalSchema={physicalSchema}
         autoUsePolicy={autoUsePolicy}
         fieldEvidence={fieldEvidence}

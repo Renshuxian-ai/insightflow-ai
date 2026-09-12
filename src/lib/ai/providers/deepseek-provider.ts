@@ -9,6 +9,7 @@ import type {
 import type {
   AgentModelProviderInput,
   AIModelProvider,
+  StructuredJsonParseDiagnostic,
   StructuredJsonModelInput,
 } from "../provider";
 import {
@@ -24,6 +25,16 @@ type JsonRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readFirstChoice(value: unknown): JsonRecord | null {
+  if (!isRecord(value) || !Array.isArray(value.choices)) {
+    return null;
+  }
+
+  const firstChoice = value.choices[0];
+
+  return isRecord(firstChoice) ? firstChoice : null;
 }
 
 function invalidResponse(message: string): ProviderRequestError {
@@ -54,7 +65,68 @@ function readMessageContent(value: unknown): string {
   return content;
 }
 
-function parseStructuredJson(content: string): unknown {
+function readSafeFinishReason(value: unknown): StructuredJsonParseDiagnostic["finishReason"] {
+  const finishReason = readFirstChoice(value)?.finish_reason;
+
+  if (finishReason === "stop" || finishReason === "length") {
+    return finishReason;
+  }
+
+  if (finishReason === "tool_calls" || finishReason === "content_filter") {
+    return finishReason;
+  }
+
+  return typeof finishReason === "string" ? "other" : null;
+}
+
+function readSafeCompletionTokens(value: unknown): number | null {
+  if (!isRecord(value) || !isRecord(value.usage)) {
+    return null;
+  }
+
+  const completionTokens = value.usage.completion_tokens;
+
+  return typeof completionTokens === "number" &&
+    Number.isSafeInteger(completionTokens) &&
+    completionTokens >= 0 &&
+    completionTokens <= 1_000_000
+    ? completionTokens
+    : null;
+}
+
+function createStructuredJsonParseDiagnostic(
+  response: unknown,
+  content: string,
+  requestedMaxTokens: number,
+): StructuredJsonParseDiagnostic {
+  const leadingContent = content.trimStart();
+  const trailingContent = content.trimEnd();
+  const finishReason = readSafeFinishReason(response);
+  const completionTokens = readSafeCompletionTokens(response);
+
+  return {
+    contentLength: content.length,
+    startsWithCodeFence: leadingContent.startsWith("```"),
+    startsWithObject: leadingContent.startsWith("{"),
+    endsWithObject: trailingContent.endsWith("}"),
+    hasLeadingText:
+      !leadingContent.startsWith("{") && !leadingContent.startsWith("```"),
+    finishReason,
+    usagePresent: isRecord(response) && isRecord(response.usage),
+    completionTokens,
+    requestedMaxTokens,
+    possiblyTruncated:
+      finishReason === "length" ||
+      (finishReason === null &&
+        completionTokens !== null &&
+        completionTokens >= requestedMaxTokens),
+  };
+}
+
+function parseStructuredJson(
+  content: string,
+  diagnostic?: StructuredJsonParseDiagnostic,
+): unknown {
   try {
     return JSON.parse(content) as unknown;
   } catch {
@@ -62,6 +134,8 @@ function parseStructuredJson(content: string): unknown {
       "deepseek",
       "invalid-json",
       "DeepSeek returned invalid JSON.",
+      undefined,
+      diagnostic,
     );
   }
 }
@@ -219,6 +293,7 @@ async function requestDeepSeek(
 async function generateDeepSeekStructuredJson(
   input: StructuredJsonModelInput,
 ): Promise<unknown> {
+  const maxTokens = input.maxTokens ?? defaultMaxTokens;
   const responseBody = await requestDeepSeek(getDeepSeekApiKey(), {
     model: input.model.providerModel,
     messages: [
@@ -227,11 +302,27 @@ async function generateDeepSeekStructuredJson(
     ],
     response_format: { type: "json_object" },
     temperature: input.temperature ?? defaultTemperature,
-    max_tokens: input.maxTokens ?? defaultMaxTokens,
+    max_tokens: maxTokens,
     stream: false,
   });
+  const content = readMessageContent(responseBody);
+  const parseDiagnostic = createStructuredJsonParseDiagnostic(
+    responseBody,
+    content,
+    maxTokens,
+  );
 
-  return parseStructuredJson(readMessageContent(responseBody));
+  if (parseDiagnostic.possiblyTruncated) {
+    throw new ProviderRequestError(
+      "deepseek",
+      "invalid-json",
+      "DeepSeek structured output may be truncated.",
+      undefined,
+      parseDiagnostic,
+    );
+  }
+
+  return parseStructuredJson(content, parseDiagnostic);
 }
 
 async function runDeepSeekAgentTurn(
@@ -276,10 +367,15 @@ async function runDeepSeekAgentTurn(
     );
   }
 
+  const maxTokens = defaultMaxTokens;
+
   return {
     kind: "final",
     message: assistantMessage,
-    output: parseStructuredJson(content),
+    output: parseStructuredJson(
+      content,
+      createStructuredJsonParseDiagnostic(responseBody, content, maxTokens),
+    ),
   };
 }
 

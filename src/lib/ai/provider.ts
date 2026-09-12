@@ -47,6 +47,19 @@ export type ProviderRequestErrorCode =
   | "invalid-response"
   | "invalid-json";
 
+export type StructuredJsonParseDiagnostic = {
+  contentLength: number;
+  startsWithCodeFence: boolean;
+  startsWithObject: boolean;
+  endsWithObject: boolean;
+  hasLeadingText: boolean;
+  finishReason: "stop" | "length" | "tool_calls" | "content_filter" | "other" | null;
+  usagePresent: boolean;
+  completionTokens: number | null;
+  requestedMaxTokens: number;
+  possiblyTruncated: boolean;
+};
+
 export class ProviderUnavailableError extends Error {
   constructor(providerId: AIProviderId) {
     super(providerId + " provider is unavailable.");
@@ -70,6 +83,7 @@ export class ProviderRequestError extends Error {
     readonly code: ProviderRequestErrorCode,
     message: string,
     readonly status?: number,
+    readonly structuredJsonParseDiagnostic?: StructuredJsonParseDiagnostic,
   ) {
     super(message);
     this.name = "ProviderRequestError";

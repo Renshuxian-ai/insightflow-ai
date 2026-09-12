@@ -36,6 +36,7 @@ type ClarificationCandidate = {
   id: string;
   label: string;
   value: SemanticMappingValue;
+  source: "primary" | "alternative" | "ambiguity";
 };
 
 function capitalizeLabel(value: string): string {
@@ -59,6 +60,61 @@ function getCompositeMeaningParts(value: string | null): string[] {
   return parts.length >= 2 && parts.length <= 4 ? parts : [];
 }
 
+function getAmbiguityMeaningParts(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const candidateText = value
+    .trim()
+    .replace(/[.!?]+$/, "")
+    .replace(
+      /^(?:(?:this|the)\s+)?(?:field|column|value|timestamp|datetime|date|it)\s+(?:could|may|might|can)\s+(?:represent|mean|be|refer to|indicate)\s+(?:either\s+)?/i,
+      "",
+    )
+    .replace(
+      /^(?:it\s+is\s+)?(?:unclear|ambiguous|uncertain)\s+(?:whether|if)\s+(?:(?:this|the)\s+(?:field|column|value)\s+)?(?:is|means|represents)?\s*/i,
+      "",
+    );
+
+  return getCompositeMeaningParts(candidateText)
+    .map((part) =>
+      part
+        .replace(/^either\s+/i, "")
+        .replace(/^['\"]|['\"]$/g, "")
+        .replace(/,?\s+(?:depending|based)\s+on\b.*$/i, "")
+        .trim(),
+    )
+    .filter((part) => part.length >= 3 && part.length <= 80);
+}
+
+function getAmbiguityCandidateValue(
+  label: string,
+  suggestion: NonNullable<SemanticFieldMapping["suggestion"]>,
+): SemanticMappingValue {
+  const normalizedLabel = label
+    .replace(/^(?:a|an|the)\s+/i, "")
+    .trim()
+    .toLocaleLowerCase();
+  const exactDefinition = Object.values(semanticTypeRegistry).find(
+    (definition) =>
+      definition.id !== SEMANTIC_TYPE_IDS.unknown &&
+      definition.label.toLocaleLowerCase() === normalizedLabel,
+  );
+
+  return exactDefinition
+    ? {
+        semanticRole: exactDefinition.role,
+        semanticType: exactDefinition.id,
+        businessMeaning: exactDefinition.label,
+      }
+    : {
+        semanticRole: suggestion.semanticRole,
+        semanticType: suggestion.semanticType,
+        businessMeaning: label,
+      };
+}
+
 function getClarificationCandidates(
   suggestion: NonNullable<SemanticFieldMapping["suggestion"]>,
 ): ClarificationCandidate[] {
@@ -74,6 +130,7 @@ function getClarificationCandidates(
       candidates.push({
         id: `primary-${suggestion.semanticRole}-${suggestion.semanticType}`,
         label: definition.label,
+        source: "primary",
         value: {
           semanticRole: suggestion.semanticRole,
           semanticType: suggestion.semanticType,
@@ -86,6 +143,7 @@ function getClarificationCandidates(
         candidates.push({
           id: `meaning-${index}-${label.toLowerCase()}`,
           label,
+          source: "ambiguity",
           value: {
             semanticRole: suggestion.semanticRole,
             semanticType: suggestion.semanticType,
@@ -98,6 +156,7 @@ function getClarificationCandidates(
       candidates.push({
         id: `primary-${suggestion.semanticRole}-${suggestion.semanticType}`,
         label,
+        source: "primary",
         value: {
           semanticRole: suggestion.semanticRole,
           semanticType: suggestion.semanticType,
@@ -117,11 +176,25 @@ function getClarificationCandidates(
       label:
         alternative.businessMeaning ??
         getSemanticTypeDefinition(alternative.semanticType).label,
+      source: "alternative",
       value: {
         semanticRole: alternative.semanticRole,
         semanticType: alternative.semanticType,
         businessMeaning: alternative.businessMeaning,
       },
+    });
+  }
+
+  for (const [index, part] of getAmbiguityMeaningParts(
+    suggestion.ambiguity,
+  ).entries()) {
+    const label = capitalizeLabel(part);
+
+    candidates.push({
+      id: `ambiguity-${index}-${label.toLowerCase()}`,
+      label,
+      source: "ambiguity",
+      value: getAmbiguityCandidateValue(label, suggestion),
     });
   }
 
@@ -383,6 +456,7 @@ export function SemanticFieldReview({
 }: SemanticFieldReviewProps) {
   const initialValue = getEditableValue(mapping, understanding);
   const [reviewMode, setReviewMode] = useState<ReviewMode>("none");
+  const [isRequiredActionsOpen, setIsRequiredActionsOpen] = useState(false);
   const [editType, setEditType] = useState<SemanticType>(
     initialValue.semanticType,
   );
@@ -396,22 +470,17 @@ export function SemanticFieldReview({
   );
   const hasHumanDecision = mapping.resolution.status !== "suggested";
   const isHumanOverride = mapping.resolution.status === "edited";
-  const compositeMeaningParts = getCompositeMeaningParts(
-    suggestion?.businessMeaning ?? null,
-  );
-  const requiresClarification = Boolean(
+  const isUnresolvedRequired = Boolean(
     understanding.isBlocking &&
       mapping.resolution.status === "suggested" &&
-      suggestion &&
-      (suggestion.ambiguity ||
-        suggestion.alternatives.length > 0 ||
-        compositeMeaningParts.length > 0),
+      hasReliableSuggestion,
   );
   const clarificationCandidates = suggestion
     ? getClarificationCandidates(suggestion)
     : [];
   const hasClarificationChoices =
-    requiresClarification && clarificationCandidates.length >= 2;
+    isUnresolvedRequired && clarificationCandidates.length >= 1;
+  const requiresClarification = hasClarificationChoices;
   const fieldSummary = getFieldSummary(
     mapping,
     understanding,
@@ -443,6 +512,17 @@ export function SemanticFieldReview({
     setEditType(value.semanticType);
     setDescription(value.businessMeaning ?? "");
     setReviewMode("edit");
+    setIsRequiredActionsOpen(false);
+  }
+
+  function markRequiredFieldUnresolved() {
+    setIsRequiredActionsOpen(false);
+    onMarkUnresolved();
+  }
+
+  function excludeRequiredField() {
+    setIsRequiredActionsOpen(false);
+    onExclude("");
   }
 
   function closeEditor() {
@@ -638,81 +718,83 @@ export function SemanticFieldReview({
           </div>
         </details>
 
-        {!readOnly && reviewMode === "none" && requiresClarification ? (
+        {!readOnly && reviewMode === "none" && hasClarificationChoices ? (
           <div className="mt-4 border-t border-[#edf0f4] pt-4">
-            {hasClarificationChoices ? (
-              <>
-                <p className="text-sm font-semibold text-[#263247]">
-                  What does <code>{mapping.originalName}</code> represent?
-                </p>
-                <div className="mt-3 grid gap-2 sm:max-w-xl">
-                  {clarificationCandidates.map((candidate) => (
-                    <button
-                      key={candidate.id}
-                      type="button"
-                      onClick={() => onEdit(candidate.value)}
-                      className="flex min-h-10 items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#344056] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff]"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="mr-2.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#aab4c5]"
-                      />
-                      {candidate.label}
-                    </button>
-                  ))}
+            <fieldset>
+              <legend className="text-sm font-semibold text-[#263247]">
+                What does <code>{mapping.originalName}</code> represent?
+              </legend>
+              <div className="mt-3 grid gap-2 sm:max-w-xl">
+                {clarificationCandidates.map((candidate) => (
+                  <label
+                    key={candidate.id}
+                    className="flex min-h-10 cursor-pointer items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#344056] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff]"
+                  >
+                    <input
+                      type="radio"
+                      name={`clarification-${mapping.stableFieldKey}`}
+                      value={candidate.id}
+                      onChange={() =>
+                        candidate.source === "primary"
+                          ? onUseSuggestion()
+                          : onEdit(candidate.value)
+                      }
+                      className="mr-2.5 h-3.5 w-3.5 shrink-0 accent-[#3559e8]"
+                    />
+                    {candidate.label}
+                  </label>
+                ))}
+                <label className="flex min-h-10 cursor-pointer items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#526078] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff] hover:text-[#263247]">
+                  <input
+                    type="radio"
+                    name={`clarification-${mapping.stableFieldKey}`}
+                    value="something-else"
+                    onChange={openEditor}
+                    className="mr-2.5 h-3.5 w-3.5 shrink-0 accent-[#3559e8]"
+                  />
+                  Something else
+                </label>
+              </div>
+            </fieldset>
+
+            <div className="relative z-20 mt-3 w-fit">
+              <button
+                type="button"
+                aria-expanded={isRequiredActionsOpen}
+                aria-controls={`required-actions-${mapping.stableFieldKey}`}
+                onClick={() =>
+                  setIsRequiredActionsOpen((isOpen) => !isOpen)
+                }
+                className="px-2 py-2 text-xs font-semibold text-[#7e8798] hover:text-[#263247]"
+              >
+                More actions
+              </button>
+              {isRequiredActionsOpen ? (
+                <div
+                  id={`required-actions-${mapping.stableFieldKey}`}
+                  className="relative z-30 mt-1 w-48 rounded-lg border border-[#dfe4ec] bg-white p-1.5 shadow-lg"
+                >
                   <button
                     type="button"
-                    onClick={openEditor}
-                    className="flex min-h-10 items-center rounded-lg border border-[#d8deea] bg-white px-3.5 py-2.5 text-left text-sm font-medium text-[#526078] transition-colors hover:border-[#8298ef] hover:bg-[#f7f9ff] hover:text-[#263247]"
+                    onClick={markRequiredFieldUnresolved}
+                    className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
                   >
-                    <span
-                      aria-hidden="true"
-                      className="mr-2.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#aab4c5]"
-                    />
-                    Something else
+                    I&apos;m not sure yet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={excludeRequiredField}
+                    className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
+                  >
+                    Don&apos;t use this field
                   </button>
                 </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-semibold text-[#263247]">
-                  This required field needs a clearer meaning.
-                </p>
-                <button
-                  type="button"
-                  onClick={openEditor}
-                  className="mt-3 rounded-lg bg-[#3559e8] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2949ca]"
-                >
-                  Define meaning
-                </button>
-              </>
-            )}
-
-            <details className="relative mt-3 w-fit">
-              <summary className="cursor-pointer list-none px-2 py-2 text-xs font-semibold text-[#7e8798] marker:hidden hover:text-[#263247]">
-                More actions
-              </summary>
-              <div className="absolute left-0 z-10 mt-1 w-48 rounded-lg border border-[#dfe4ec] bg-white p-1.5 shadow-lg">
-                <button
-                  type="button"
-                  onClick={onMarkUnresolved}
-                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
-                >
-                  I&apos;m not sure yet
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onExclude("")}
-                  className="w-full rounded-md px-2.5 py-2 text-left text-xs font-medium text-[#526078] hover:bg-[#f6f7f9]"
-                >
-                  Don&apos;t use this field
-                </button>
-              </div>
-            </details>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
-        {!readOnly && reviewMode === "none" && !requiresClarification ? (
+        {!readOnly && reviewMode === "none" && !hasClarificationChoices ? (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#edf0f4] pt-4">
             {understanding.status === "needs-review" &&
             hasReliableSuggestion ? (

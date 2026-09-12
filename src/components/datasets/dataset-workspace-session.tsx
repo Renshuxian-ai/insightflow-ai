@@ -14,6 +14,7 @@ import {
 import type {
   SemanticAutoUsePolicyResult,
   SemanticFieldReviewEvidence,
+  SemanticInferenceMode,
   SemanticSchema,
 } from "@/lib/datasets/semantic/types";
 import type { Dataset } from "@/lib/datasets/types";
@@ -34,6 +35,7 @@ export type SemanticReviewDraft = {
   schema: SemanticSchema;
   autoUsePolicy: SemanticAutoUsePolicyResult;
   fieldEvidence: SemanticFieldReviewEvidence[];
+  inferenceMode: SemanticInferenceMode;
   datasetContext: string;
   updateSequence: number;
 };
@@ -64,6 +66,10 @@ type DatasetWorkspaceSession = {
   fieldEvidence: SemanticFieldReviewEvidence[];
   setFieldEvidence: Dispatch<
     SetStateAction<SemanticFieldReviewEvidence[]>
+  >;
+  semanticInferenceMode: SemanticInferenceMode | null;
+  setSemanticInferenceMode: Dispatch<
+    SetStateAction<SemanticInferenceMode | null>
   >;
   datasetContext: string;
   setDatasetContext: Dispatch<SetStateAction<string>>;
@@ -106,6 +112,8 @@ export function DatasetWorkspaceSessionProvider({
   const [fieldEvidence, setFieldEvidence] = useState<
     SemanticFieldReviewEvidence[]
   >([]);
+  const [semanticInferenceMode, setSemanticInferenceMode] =
+    useState<SemanticInferenceMode | null>(null);
   const [datasetContext, setDatasetContext] = useState("");
   const [semanticError, setSemanticError] = useState<string | null>(null);
   const [semanticSessionMessage, setSemanticSessionMessage] =
@@ -142,6 +150,8 @@ export function DatasetWorkspaceSessionProvider({
       setAutoUsePolicy,
       fieldEvidence,
       setFieldEvidence,
+      semanticInferenceMode,
+      setSemanticInferenceMode,
       datasetContext,
       setDatasetContext,
       semanticError,
@@ -167,6 +177,7 @@ export function DatasetWorkspaceSessionProvider({
       datasetContext,
       error,
       fieldEvidence,
+      semanticInferenceMode,
       semanticError,
       semanticSchema,
       semanticSessionMessage,

@@ -13,6 +13,7 @@ import {
 import type {
   SemanticAutoUsePolicyResult,
   SemanticFieldReviewEvidence,
+  SemanticInferenceMode,
   SemanticSchema,
 } from "@/lib/datasets/semantic/types";
 import type { Dataset, DatasetSchema } from "@/lib/datasets/types";
@@ -36,6 +37,7 @@ type SemanticApiPayload = {
   semanticSchema?: SemanticSchema;
   autoUsePolicy?: SemanticAutoUsePolicyResult;
   fieldEvidence?: SemanticFieldReviewEvidence[];
+  inferenceMode?: SemanticInferenceMode;
 };
 
 const SUPPORTED_EXTENSIONS = ["csv", "xlsx"];
@@ -92,6 +94,16 @@ function isSafeFieldEvidence(
       typeof field?.stableFieldKey === "string" &&
       physicalFieldKeys.has(field.stableFieldKey) &&
       Array.isArray(field.sanitizedSamples),
+  );
+}
+
+function isSemanticInferenceMode(
+  value: unknown,
+): value is SemanticInferenceMode {
+  return (
+    value === "ai" ||
+    value === "ai-assisted" ||
+    value === "deterministic-fallback"
   );
 }
 
@@ -190,6 +202,8 @@ export function DatasetWorkspace() {
     setAutoUsePolicy,
     fieldEvidence,
     setFieldEvidence,
+    semanticInferenceMode,
+    setSemanticInferenceMode,
     datasetContext,
     setDatasetContext,
     semanticError,
@@ -216,6 +230,7 @@ export function DatasetWorkspace() {
     setSemanticSchema(null);
     setAutoUsePolicy(null);
     setFieldEvidence([]);
+    setSemanticInferenceMode(null);
     setDatasetContext("");
     setCurrentReviewKey(null);
     setSemanticStatus("idle");
@@ -230,6 +245,7 @@ export function DatasetWorkspace() {
     schema: SemanticSchema,
     policy: SemanticAutoUsePolicyResult,
     evidence: SemanticFieldReviewEvidence[],
+    inferenceMode: SemanticInferenceMode,
     context: string,
   ) {
     draftUpdateSequenceRef.current += 1;
@@ -240,6 +256,7 @@ export function DatasetWorkspace() {
       schema,
       autoUsePolicy: policy,
       fieldEvidence: evidence,
+      inferenceMode,
       datasetContext: context,
       updateSequence: draftUpdateSequenceRef.current,
     };
@@ -270,6 +287,7 @@ export function DatasetWorkspace() {
     setSemanticSchema(restoredSchema);
     setAutoUsePolicy(restoredPolicy);
     setFieldEvidence(draft.fieldEvidence);
+    setSemanticInferenceMode(draft.inferenceMode);
     setDatasetContext(draft.datasetContext);
     setCurrentReviewKey(reviewKey);
     setSemanticStatus("ready");
@@ -284,6 +302,7 @@ export function DatasetWorkspace() {
       restoredSchema,
       restoredPolicy,
       draft.fieldEvidence,
+      draft.inferenceMode,
       draft.datasetContext,
     );
   }
@@ -303,6 +322,7 @@ export function DatasetWorkspace() {
       setSemanticSchema(null);
       setAutoUsePolicy(null);
       setFieldEvidence([]);
+      setSemanticInferenceMode(null);
       setSemanticStatus("empty");
       setSemanticError(null);
       return;
@@ -344,7 +364,8 @@ export function DatasetWorkspace() {
           payload.autoUsePolicy,
           physicalSchema,
         ) ||
-        !isSafeFieldEvidence(payload.fieldEvidence, physicalSchema)
+        !isSafeFieldEvidence(payload.fieldEvidence, physicalSchema) ||
+        !isSemanticInferenceMode(payload.inferenceMode)
       ) {
         throw new Error(
           "The generated field understanding does not match the current dataset.",
@@ -366,6 +387,7 @@ export function DatasetWorkspace() {
       setSemanticSchema(nextSchema);
       setAutoUsePolicy(nextPolicy);
       setFieldEvidence(payload.fieldEvidence);
+      setSemanticInferenceMode(payload.inferenceMode);
       setDatasetContext(context);
       setCurrentReviewKey(reviewKey);
       setSemanticStatus("ready");
@@ -381,6 +403,7 @@ export function DatasetWorkspace() {
         nextSchema,
         nextPolicy,
         payload.fieldEvidence,
+        payload.inferenceMode,
         context,
       );
     } catch (caughtError) {
@@ -397,6 +420,7 @@ export function DatasetWorkspace() {
         setSemanticSchema(latestDraft.schema);
         setAutoUsePolicy(latestDraft.autoUsePolicy);
         setFieldEvidence(latestDraft.fieldEvidence);
+        setSemanticInferenceMode(latestDraft.inferenceMode);
         setDatasetContext(latestDraft.datasetContext);
         setSemanticStatus("ready");
         setSemanticSessionMessage(
@@ -408,6 +432,7 @@ export function DatasetWorkspace() {
       setSemanticSchema(null);
       setAutoUsePolicy(null);
       setFieldEvidence([]);
+      setSemanticInferenceMode(null);
       setSemanticStatus("error");
       setSemanticError(
         caughtError instanceof Error
@@ -580,6 +605,7 @@ export function DatasetWorkspace() {
     if (
       !dataset ||
       !autoUsePolicy ||
+      !semanticInferenceMode ||
       !sourceSnapshotId ||
       !currentReviewKey ||
       !isSemanticSchemaForPhysicalSchema(nextSchema, dataset.schema)
@@ -598,6 +624,7 @@ export function DatasetWorkspace() {
       nextSchema,
       autoUsePolicy,
       fieldEvidence,
+      semanticInferenceMode,
       datasetContext,
     );
   }
@@ -610,7 +637,8 @@ export function DatasetWorkspace() {
       sourceSnapshotId &&
       dataset &&
       semanticSchema &&
-      autoUsePolicy
+      autoUsePolicy &&
+      semanticInferenceMode
     ) {
       storeDraft(
         currentReviewKey,
@@ -619,6 +647,7 @@ export function DatasetWorkspace() {
         semanticSchema,
         autoUsePolicy,
         fieldEvidence,
+        semanticInferenceMode,
         value,
       );
     }
@@ -787,6 +816,7 @@ export function DatasetWorkspace() {
             status={semanticStatus}
             error={semanticError}
             sessionMessage={semanticSessionMessage}
+            inferenceMode={semanticInferenceMode}
             datasetContext={datasetContext}
             onDatasetContextChange={handleDatasetContextChange}
             onRetry={() => refreshSemanticDraft()}

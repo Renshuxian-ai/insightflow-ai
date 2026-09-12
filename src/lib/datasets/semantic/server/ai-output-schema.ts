@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  getSemanticTypeDefinition,
   isSemanticRole,
   isSemanticType,
   isSemanticTypeCompatibleWithRole,
@@ -15,6 +16,12 @@ import type {
   SemanticSuggestionBatch,
   SemanticType,
 } from "../types";
+import {
+  SEMANTIC_AI_ALTERNATIVE_PROPERTIES,
+  SEMANTIC_AI_OUTPUT_CONTRACT,
+  SEMANTIC_AI_RESPONSE_PROPERTIES,
+  SEMANTIC_AI_SUGGESTION_PROPERTIES,
+} from "./semantic-ai-output-contract";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -24,6 +31,11 @@ export type SemanticAiOutputValidationDiagnostic = {
   expected: string;
   receivedType: string;
   receivedSummary: string;
+};
+
+export type SemanticAiSuggestionBatchValidationResult = {
+  validOutputs: SemanticAiSuggestionOutput[];
+  invalidSuggestions: SemanticAiOutputValidationDiagnostic[];
 };
 
 export class SemanticAiOutputValidationError extends Error {
@@ -134,9 +146,7 @@ function readString(value: unknown, path: string, maximumLength: number): string
     );
   }
 
-  const normalized = value.trim();
-
-  if (normalized.length > maximumLength) {
+  if (value.length > maximumLength) {
     failValidation(
       path,
       "text exceeds the allowed length.",
@@ -145,7 +155,7 @@ function readString(value: unknown, path: string, maximumLength: number): string
     );
   }
 
-  return normalized;
+  return value;
 }
 
 function readNullableString(
@@ -174,19 +184,6 @@ function readConfidence(value: unknown, path: string): number {
   return value;
 }
 
-function readSemanticRole(value: unknown, path: string): SemanticRole {
-  if (!isSemanticRole(value)) {
-    failValidation(
-      path,
-      "invalid semantic role.",
-      "a registered SemanticRole",
-      value,
-    );
-  }
-
-  return value;
-}
-
 function readSemanticType(value: unknown, path: string): SemanticType {
   if (!isSemanticType(value)) {
     failValidation(
@@ -200,25 +197,47 @@ function readSemanticType(value: unknown, path: string): SemanticType {
   return value;
 }
 
-function assertCompatibleRole(
+function readOptionalSemanticRole(
+  value: unknown,
   semanticType: SemanticType,
-  semanticRole: SemanticRole,
   path: string,
-) {
-  if (!isSemanticTypeCompatibleWithRole(semanticType, semanticRole)) {
+): SemanticRole | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (semanticType !== SEMANTIC_TYPE_IDS.unknown) {
+    failValidation(
+      path,
+      "semanticRole is server-derived for a known semanticType.",
+      "omitted unless semanticType is unknown",
+      value,
+    );
+  }
+
+  if (!isSemanticRole(value)) {
+    failValidation(
+      path,
+      "invalid semantic role.",
+      "a registered SemanticRole",
+      value,
+    );
+  }
+
+  if (!isSemanticTypeCompatibleWithRole(semanticType, value)) {
     failValidation(
       path,
       "semantic role and type are incompatible.",
-      `the registered role for ${semanticType}`,
-      { semanticRole, semanticType },
-      "object(role/type mismatch)",
+      `a registry-compatible role for ${semanticType}`,
+      value,
     );
   }
+
+  return value;
 }
 
 function assertUnknownInvariants(
   value: {
-    semanticRole: SemanticRole;
     semanticType: SemanticType;
     businessMeaning: string | null;
     ambiguity?: string | null;
@@ -226,16 +245,14 @@ function assertUnknownInvariants(
   path: string,
   requireAmbiguity = false,
 ) {
-  const hasUnknownSemantic =
-    value.semanticRole === "unknown" ||
-    value.semanticType === SEMANTIC_TYPE_IDS.unknown;
+  const hasUnknownSemantic = value.semanticType === SEMANTIC_TYPE_IDS.unknown;
 
   if (!hasUnknownSemantic) {
     if (value.businessMeaning === null) {
       failValidation(
         `${path}.businessMeaning`,
         "known semantics require a business meaning.",
-        "non-empty string when semantic role and type are known",
+        "non-empty string when semanticType is known",
         value.businessMeaning,
       );
     }
@@ -247,7 +264,7 @@ function assertUnknownInvariants(
     failValidation(
       `${path}.businessMeaning`,
       "unknown semantics cannot claim a specific business meaning.",
-      "null when semantic role or type is unknown",
+      "null when semanticType is unknown",
       value.businessMeaning,
     );
   }
@@ -256,7 +273,7 @@ function assertUnknownInvariants(
     failValidation(
       `${path}.ambiguity`,
       "unknown semantics must disclose ambiguity.",
-      "non-empty string when semantic role or type is unknown",
+      "non-empty string when semanticType is unknown",
       value.ambiguity,
     );
   }
@@ -269,28 +286,22 @@ function parseAlternative(
   const alternative = readRecord(value, path);
   assertAllowedKeys(
     alternative,
-    [
-      "semanticRole",
-      "semanticType",
-      "businessMeaning",
-      "semanticConfidence",
-      "reason",
-    ],
+    SEMANTIC_AI_ALTERNATIVE_PROPERTIES,
     path,
-  );
-  const semanticRole = readSemanticRole(
-    alternative.semanticRole,
-    `${path}.semanticRole`,
   );
   const semanticType = readSemanticType(
     alternative.semanticType,
     `${path}.semanticType`,
   );
-  assertCompatibleRole(semanticType, semanticRole, path);
+  const semanticRole = readOptionalSemanticRole(
+    alternative.semanticRole,
+    semanticType,
+    `${path}.semanticRole`,
+  );
   const businessMeaning = readNullableString(
     alternative.businessMeaning,
     `${path}.businessMeaning`,
-    160,
+    SEMANTIC_AI_OUTPUT_CONTRACT.businessMeaning.hardMax,
   );
   const semanticConfidence = readConfidence(
     alternative.semanticConfidence,
@@ -299,7 +310,6 @@ function parseAlternative(
 
   assertUnknownInvariants(
     {
-      semanticRole,
       semanticType,
       businessMeaning,
     },
@@ -307,19 +317,26 @@ function parseAlternative(
   );
 
   return {
-    semanticRole,
+    ...(semanticRole ? { semanticRole } : {}),
     semanticType,
     businessMeaning,
     semanticConfidence,
-    reason: readString(alternative.reason, `${path}.reason`, 300),
+    reason: readString(
+      alternative.reason,
+      `${path}.reason`,
+      SEMANTIC_AI_OUTPUT_CONTRACT.alternativeReason.hardMax,
+    ),
   };
 }
 
 function getCandidateSignature(value: {
-  semanticRole: SemanticRole;
+  semanticRole?: SemanticRole;
   semanticType: SemanticType;
 }): string {
-  return `${value.semanticRole}:${value.semanticType}`;
+  const semanticRole =
+    value.semanticRole ?? getSemanticTypeDefinition(value.semanticType).role;
+
+  return `${semanticRole}:${value.semanticType}`;
 }
 
 function parseSuggestion(
@@ -330,22 +347,13 @@ function parseSuggestion(
   const suggestion = readRecord(value, path);
   assertAllowedKeys(
     suggestion,
-    [
-      "stableFieldKey",
-      "semanticRole",
-      "semanticType",
-      "businessMeaning",
-      "semanticConfidence",
-      "explanation",
-      "alternatives",
-      "ambiguity",
-    ],
+    SEMANTIC_AI_SUGGESTION_PROPERTIES,
     path,
   );
   const stableFieldKey = readString(
     suggestion.stableFieldKey,
     `${path}.stableFieldKey`,
-    96,
+    SEMANTIC_AI_OUTPUT_CONTRACT.stableFieldKeyMaxCharacters,
   );
 
   if (!allowedFieldKeys.has(stableFieldKey)) {
@@ -358,33 +366,34 @@ function parseSuggestion(
     );
   }
 
-  const semanticRole = readSemanticRole(
-    suggestion.semanticRole,
-    `${path}.semanticRole`,
-  );
   const semanticType = readSemanticType(
     suggestion.semanticType,
     `${path}.semanticType`,
   );
-  assertCompatibleRole(semanticType, semanticRole, path);
+  const semanticRole = readOptionalSemanticRole(
+    suggestion.semanticRole,
+    semanticType,
+    `${path}.semanticRole`,
+  );
   const businessMeaning = readNullableString(
     suggestion.businessMeaning,
     `${path}.businessMeaning`,
-    160,
+    SEMANTIC_AI_OUTPUT_CONTRACT.businessMeaning.hardMax,
   );
   const semanticConfidence = readConfidence(
     suggestion.semanticConfidence,
     `${path}.semanticConfidence`,
   );
-  const ambiguity = readNullableString(
-    suggestion.ambiguity,
-    `${path}.ambiguity`,
-    300,
-  );
+  const ambiguity = suggestion.ambiguity === undefined
+    ? null
+    : readNullableString(
+        suggestion.ambiguity,
+        `${path}.ambiguity`,
+        SEMANTIC_AI_OUTPUT_CONTRACT.ambiguity.hardMax,
+      );
 
   assertUnknownInvariants(
     {
-      semanticRole,
       semanticType,
       businessMeaning,
       ambiguity,
@@ -393,19 +402,26 @@ function parseSuggestion(
     true,
   );
 
-  if (!Array.isArray(suggestion.alternatives) || suggestion.alternatives.length > 3) {
+  if (
+    suggestion.alternatives !== undefined &&
+    !Array.isArray(suggestion.alternatives)
+  ) {
     failValidation(
       `${path}.alternatives`,
-      suggestion.alternatives === undefined ? "missing field." : "invalid array length.",
-      "array with at most 3 items",
+      "type mismatch.",
+      "array when provided",
       suggestion.alternatives,
     );
   }
 
-  const alternatives = suggestion.alternatives.map((alternative, index) =>
+  const rawAlternatives = suggestion.alternatives ?? [];
+  const alternatives = rawAlternatives.map((alternative, index) =>
     parseAlternative(alternative, `${path}.alternatives[${index}]`),
   );
-  const primarySignature = getCandidateSignature({ semanticRole, semanticType });
+  const primarySignature = getCandidateSignature({
+    semanticRole,
+    semanticType,
+  });
   const alternativeSignatures = alternatives.map(getCandidateSignature);
 
   if (alternativeSignatures.includes(primarySignature)) {
@@ -428,13 +444,26 @@ function parseSuggestion(
     );
   }
 
+  if (alternatives.length > SEMANTIC_AI_OUTPUT_CONTRACT.maxAlternatives) {
+    failValidation(
+      `${path}.alternatives`,
+      "invalid array length.",
+      `array with at most ${SEMANTIC_AI_OUTPUT_CONTRACT.maxAlternatives} items`,
+      alternatives,
+    );
+  }
+
   return {
     stableFieldKey,
-    semanticRole,
+    ...(semanticRole ? { semanticRole } : {}),
     semanticType,
     businessMeaning,
     semanticConfidence,
-    explanation: readString(suggestion.explanation, `${path}.explanation`, 500),
+    explanation: readString(
+      suggestion.explanation,
+      `${path}.explanation`,
+      SEMANTIC_AI_OUTPUT_CONTRACT.explanation.hardMax,
+    ),
     alternatives,
     ambiguity,
   };
@@ -489,9 +518,96 @@ export function validateSemanticAiSuggestionOutput(
   return suggestions;
 }
 
+/**
+ * Validates the batch structure before validating each field suggestion in
+ * isolation. Structural ambiguity remains batch-fatal; a mapped field's
+ * semantic failure is reported without modifying or partially accepting it.
+ */
+export function validateSemanticAiSuggestionBatchOutput(
+  value: unknown,
+  context: SemanticInferenceContext,
+): SemanticAiSuggestionBatchValidationResult {
+  if (!Array.isArray(value)) {
+    failValidation(
+      "semanticAiSuggestions",
+      "type mismatch.",
+      "array",
+      value,
+    );
+  }
+
+  if (value.length > context.fields.length) {
+    failValidation(
+      "semanticAiSuggestions",
+      "too many suggestions.",
+      "no more items than fields in the inference context",
+      value,
+    );
+  }
+
+  const allowedFieldKeys = new Set(
+    context.fields.map((field) => field.stableFieldKey),
+  );
+  const rawSuggestions = value.map((rawSuggestion, index) => {
+    const path = `semanticAiSuggestions[${index}]`;
+    const suggestion = readRecord(rawSuggestion, path);
+    const stableFieldKey = readString(
+      suggestion.stableFieldKey,
+      `${path}.stableFieldKey`,
+      SEMANTIC_AI_OUTPUT_CONTRACT.stableFieldKeyMaxCharacters,
+    );
+
+    if (!allowedFieldKeys.has(stableFieldKey)) {
+      failValidation(
+        `${path}.stableFieldKey`,
+        "unknown field reference.",
+        "a stableFieldKey from the inference context",
+        stableFieldKey,
+        "string(field not found)",
+      );
+    }
+
+    return { path, rawSuggestion, stableFieldKey };
+  });
+  const stableFieldKeys = rawSuggestions.map(
+    (suggestion) => suggestion.stableFieldKey,
+  );
+
+  if (new Set(stableFieldKeys).size !== stableFieldKeys.length) {
+    failValidation(
+      "semanticAiSuggestions",
+      "duplicate stableFieldKey values.",
+      "at most one suggestion for each inference-context field",
+      value,
+      "array(contains duplicate stableFieldKey)",
+    );
+  }
+
+  const validOutputs: SemanticAiSuggestionOutput[] = [];
+  const invalidSuggestions: SemanticAiOutputValidationDiagnostic[] = [];
+
+  for (const { path, rawSuggestion } of rawSuggestions) {
+    try {
+      validOutputs.push(parseSuggestion(rawSuggestion, path, allowedFieldKeys));
+    } catch (error) {
+      if (!(error instanceof SemanticAiOutputValidationError)) {
+        throw error;
+      }
+
+      invalidSuggestions.push(error.diagnostic);
+    }
+  }
+
+  return { validOutputs, invalidSuggestions };
+}
+
 export function unwrapSemanticAiSuggestionResponse(value: unknown): unknown {
   const response = readRecord(value, "semanticAiResponse");
-  assertAllowedKeys(response, ["suggestions"], "semanticAiResponse");
+  assertAllowedKeys(
+    response,
+    SEMANTIC_AI_RESPONSE_PROPERTIES,
+    "semanticAiResponse",
+  );
 
   if (!Object.prototype.hasOwnProperty.call(response, "suggestions")) {
     failValidation(
@@ -511,7 +627,8 @@ export function stampSemanticAiSuggestions(
   return outputs.map((output) => ({
     id: `semantic-suggestion_${output.stableFieldKey}_ai-v1`,
     stableFieldKey: output.stableFieldKey,
-    semanticRole: output.semanticRole,
+    semanticRole:
+      output.semanticRole ?? getSemanticTypeDefinition(output.semanticType).role,
     semanticType: output.semanticType,
     businessMeaning: output.businessMeaning,
     semanticConfidence: output.semanticConfidence,
@@ -519,6 +636,9 @@ export function stampSemanticAiSuggestions(
     explanation: output.explanation,
     alternatives: output.alternatives.map((alternative) => ({
       ...alternative,
+      semanticRole:
+        alternative.semanticRole ??
+        getSemanticTypeDefinition(alternative.semanticType).role,
     })),
     ambiguity: output.ambiguity,
   }));

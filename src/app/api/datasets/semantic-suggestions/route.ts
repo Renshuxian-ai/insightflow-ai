@@ -2,7 +2,8 @@ import { DATASET_LIMITS } from "@/lib/datasets/constants";
 import { buildSemanticSchemaDraft } from "@/lib/datasets/semantic/build-semantic-schema-draft";
 import { createSemanticAutoUsePolicy } from "@/lib/datasets/semantic/auto-use-policy";
 import { buildSemanticInferenceContext } from "@/lib/datasets/semantic/server/build-inference-context";
-import { generateMockSemanticSuggestions } from "@/lib/datasets/semantic/server/mock-suggestion-generator";
+import { generateSemanticInference } from "@/lib/datasets/semantic/server/semantic-inference";
+import { defaultSemanticAiModelId } from "@/lib/ai/model-registry";
 import {
   createSchemaFingerprint,
   createStableFieldKey,
@@ -596,7 +597,12 @@ export async function POST(request: Request) {
     const schema = readDatasetSchema(requestBody.schema);
     const datasetContext = readDatasetContext(requestBody.datasetContext);
     const inferenceContext = buildSemanticInferenceContext(schema);
-    const suggestionBatch = generateMockSemanticSuggestions(inferenceContext);
+    const semanticInference = await generateSemanticInference({
+      context: inferenceContext,
+      modelId: defaultSemanticAiModelId,
+      datasetContext,
+    });
+    const suggestionBatch = semanticInference.suggestionBatch;
     const semanticSchema = buildSemanticSchemaDraft(schema, suggestionBatch);
     const autoUsePolicy = createSemanticAutoUsePolicy(
       inferenceContext,
@@ -613,7 +619,12 @@ export async function POST(request: Request) {
       isDistinctCountExact: field.isDistinctCountExact,
     }));
 
-    return jsonResponse({ semanticSchema, autoUsePolicy, fieldEvidence });
+    return jsonResponse({
+      semanticSchema,
+      autoUsePolicy,
+      fieldEvidence,
+      inferenceMode: semanticInference.inferenceMode,
+    });
   } catch (error) {
     if (error instanceof SemanticRequestError) {
       return requestError(error);
