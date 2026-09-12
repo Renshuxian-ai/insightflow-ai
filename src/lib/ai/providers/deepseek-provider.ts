@@ -1,4 +1,5 @@
-import { buildInvestigationPrompt } from "../prompts";
+import "server-only";
+
 import type {
   AgentMessage,
   AgentModelTurn,
@@ -6,12 +7,18 @@ import type {
   ProviderToolDefinition,
 } from "../agent/types";
 import type {
-  InvestigationProvider,
-  InvestigationProviderAgentInput,
+  AgentModelProviderInput,
+  AIModelProvider,
+  StructuredJsonModelInput,
 } from "../provider";
-import { ProviderUnavailableError } from "../provider";
+import {
+  ProviderRequestError,
+  ProviderUnavailableError,
+} from "../provider";
 
 const deepSeekEndpoint = "https://api.deepseek.com/chat/completions";
+const defaultTemperature = 0.2;
+const defaultMaxTokens = 3_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -19,15 +26,19 @@ function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function invalidResponse(message: string): ProviderRequestError {
+  return new ProviderRequestError("deepseek", "invalid-response", message);
+}
+
 function readFirstMessage(value: unknown): JsonRecord {
   if (!isRecord(value) || !Array.isArray(value.choices)) {
-    throw new Error("DeepSeek returned an invalid response envelope.");
+    throw invalidResponse("DeepSeek returned an invalid response envelope.");
   }
 
   const firstChoice = value.choices[0];
 
   if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    throw new Error("DeepSeek returned no message.");
+    throw invalidResponse("DeepSeek returned no message.");
   }
 
   return firstChoice.message;
@@ -37,10 +48,32 @@ function readMessageContent(value: unknown): string {
   const content = readFirstMessage(value).content;
 
   if (typeof content !== "string" || content.trim().length === 0) {
-    throw new Error("DeepSeek returned empty content.");
+    throw invalidResponse("DeepSeek returned empty content.");
   }
 
   return content;
+}
+
+function parseStructuredJson(content: string): unknown {
+  try {
+    return JSON.parse(content) as unknown;
+  } catch {
+    throw new ProviderRequestError(
+      "deepseek",
+      "invalid-json",
+      "DeepSeek returned invalid JSON.",
+    );
+  }
+}
+
+function getDeepSeekApiKey(): string {
+  const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new ProviderUnavailableError("deepseek");
+  }
+
+  return apiKey;
 }
 
 function toDeepSeekMessages(messages: AgentMessage[]): unknown[] {
@@ -79,7 +112,11 @@ function toDeepSeekMessages(messages: AgentMessage[]): unknown[] {
       };
     }
 
-    throw new Error("Unsupported agent message.");
+    throw new ProviderRequestError(
+      "deepseek",
+      "invalid-response",
+      "Unsupported model message.",
+    );
   });
 }
 
@@ -119,7 +156,7 @@ function readAgentToolCalls(message: JsonRecord): AgentToolCall[] {
       id:
         typeof toolCall.id === "string"
           ? toolCall.id
-          : `invalid-tool-call-${index + 1}`,
+          : "invalid-tool-call-" + (index + 1),
       name:
         typeof toolFunction.name === "string"
           ? toolFunction.name
@@ -137,28 +174,70 @@ async function requestDeepSeek(
   apiKey: string,
   body: Record<string, unknown>,
 ): Promise<unknown> {
-  const response = await fetch(deepSeekEndpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(45_000),
-  });
+  let response: Response;
 
-  if (!response.ok) {
-    throw new Error(`DeepSeek request failed with status ${response.status}.`);
+  try {
+    response = await fetch(deepSeekEndpoint, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name : "";
+
+    throw new ProviderRequestError(
+      "deepseek",
+      errorName === "AbortError" || errorName === "TimeoutError"
+        ? "timeout"
+        : "transport-error",
+      errorName === "AbortError" || errorName === "TimeoutError"
+        ? "DeepSeek request timed out."
+        : "DeepSeek request could not be completed.",
+    );
   }
 
-  return response.json() as Promise<unknown>;
+  if (!response.ok) {
+    throw new ProviderRequestError(
+      "deepseek",
+      "http-error",
+      "DeepSeek request failed with status " + response.status + ".",
+      response.status,
+    );
+  }
+
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    throw invalidResponse("DeepSeek returned a non-JSON response.");
+  }
+}
+
+async function generateDeepSeekStructuredJson(
+  input: StructuredJsonModelInput,
+): Promise<unknown> {
+  const responseBody = await requestDeepSeek(getDeepSeekApiKey(), {
+    model: input.model.providerModel,
+    messages: [
+      { role: "system", content: input.systemPrompt },
+      { role: "user", content: input.userPrompt },
+    ],
+    response_format: { type: "json_object" },
+    temperature: input.temperature ?? defaultTemperature,
+    max_tokens: input.maxTokens ?? defaultMaxTokens,
+    stream: false,
+  });
+
+  return parseStructuredJson(readMessageContent(responseBody));
 }
 
 async function runDeepSeekAgentTurn(
-  apiKey: string,
-  input: InvestigationProviderAgentInput,
+  input: AgentModelProviderInput,
 ): Promise<AgentModelTurn> {
-  const responseBody = await requestDeepSeek(apiKey, {
+  const responseBody = await requestDeepSeek(getDeepSeekApiKey(), {
     model: input.model.providerModel,
     messages: toDeepSeekMessages(input.request.messages),
     ...(input.request.phase === "tool-selection" && input.request.tools.length > 0
@@ -169,8 +248,8 @@ async function runDeepSeekAgentTurn(
       : {
           response_format: { type: "json_object" },
         }),
-    temperature: 0.2,
-    max_tokens: 3_000,
+    temperature: defaultTemperature,
+    max_tokens: defaultMaxTokens,
     stream: false,
   });
   const message = readFirstMessage(responseBody);
@@ -192,71 +271,23 @@ async function runDeepSeekAgentTurn(
   const content = assistantMessage.content;
 
   if (!content) {
-    throw new Error("DeepSeek returned no final investigation output.");
+    throw invalidResponse(
+      "DeepSeek returned no final structured model output.",
+    );
   }
 
   return {
     kind: "final",
     message: assistantMessage,
-    output: JSON.parse(content) as unknown,
+    output: parseStructuredJson(content),
   };
 }
 
-export const deepSeekInvestigationProvider: InvestigationProvider = {
+export const deepSeekModelProvider: AIModelProvider = {
   id: "deepseek",
   isAvailable() {
     return Boolean(process.env.DEEPSEEK_API_KEY?.trim());
   },
-  async generate({ diagnosticCase, model }) {
-    const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
-
-    if (!apiKey) {
-      throw new ProviderUnavailableError("deepseek");
-    }
-
-    const prompt = buildInvestigationPrompt(diagnosticCase);
-    const responseBody = await requestDeepSeek(apiKey, {
-      model: model.providerModel,
-      messages: [
-        { role: "system", content: prompt.system },
-        { role: "user", content: prompt.user },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-      max_tokens: 3_000,
-      stream: false,
-    });
-    const content = readMessageContent(responseBody);
-    const generatedValue: unknown = JSON.parse(content);
-
-    if (!isRecord(generatedValue)) {
-      throw new Error("DeepSeek output must be a JSON object.");
-    }
-
-    const generatedHypothesis = isRecord(generatedValue.workingHypothesis)
-      ? generatedValue.workingHypothesis
-      : {};
-
-    return {
-      ...generatedValue,
-      id: `investigation-${diagnosticCase.id}-${model.id}`,
-      diagnosticCaseId: diagnosticCase.id,
-      source: "deepseek",
-      status: "generated-draft",
-      workingHypothesis: {
-        ...generatedHypothesis,
-        id: `hypothesis-${diagnosticCase.id}-${model.id}`,
-        status: "unvalidated",
-      },
-    };
-  },
-  async runAgentTurn(input) {
-    const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
-
-    if (!apiKey) {
-      throw new ProviderUnavailableError("deepseek");
-    }
-
-    return runDeepSeekAgentTurn(apiKey, input);
-  },
+  generateStructuredJson: generateDeepSeekStructuredJson,
+  runAgentTurn: runDeepSeekAgentTurn,
 };

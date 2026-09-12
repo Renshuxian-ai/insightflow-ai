@@ -7,16 +7,75 @@ import type {
 
 type JsonRecord = Record<string, unknown>;
 
+export type InvestigationValidationDiagnostic = {
+  path: string;
+  issue: string;
+  expected: string;
+  receivedType: string;
+  received: string;
+};
+
 export class InvestigationOutputValidationError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(readonly diagnostic: InvestigationValidationDiagnostic) {
+    super(
+      `${diagnostic.path}: ${diagnostic.issue} Expected ${diagnostic.expected}; received ${diagnostic.received}.`,
+    );
     this.name = "InvestigationOutputValidationError";
   }
 }
 
+function describeReceived(value: unknown): string {
+  if (value === undefined) {
+    return "missing";
+  }
+
+  if (value === null) {
+    return "null";
+  }
+
+  if (Array.isArray(value)) {
+    return `array(length=${value.length})`;
+  }
+
+  if (typeof value === "string") {
+    return `string(length=${value.length})`;
+  }
+
+  return typeof value;
+}
+
+function getReceivedType(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+function failValidation(
+  path: string,
+  issue: string,
+  expected: string,
+  value: unknown,
+  received = describeReceived(value),
+): never {
+  throw new InvestigationOutputValidationError({
+    path,
+    issue,
+    expected,
+    receivedType: getReceivedType(value),
+    received,
+  });
+}
+
 function readRecord(value: unknown, path: string): JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new InvestigationOutputValidationError(`${path} must be an object.`);
+    failValidation(
+      path,
+      value === undefined ? "missing field." : "type mismatch.",
+      "object",
+      value,
+    );
   }
 
   return value as JsonRecord;
@@ -24,13 +83,23 @@ function readRecord(value: unknown, path: string): JsonRecord {
 
 function readString(value: unknown, path: string, maxLength = 2_000): string {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new InvestigationOutputValidationError(`${path} must be a non-empty string.`);
+    failValidation(
+      path,
+      value === undefined ? "missing field." : "invalid string.",
+      "non-empty string",
+      value,
+    );
   }
 
   const normalized = value.trim();
 
   if (normalized.length > maxLength) {
-    throw new InvestigationOutputValidationError(`${path} is too long.`);
+    failValidation(
+      path,
+      "text exceeds the allowed length.",
+      `string no longer than ${maxLength} characters`,
+      value,
+    );
   }
 
   return normalized;
@@ -43,12 +112,20 @@ function readArray(
   maximumItems = 20,
 ): unknown[] {
   if (!Array.isArray(value)) {
-    throw new InvestigationOutputValidationError(`${path} must be an array.`);
+    failValidation(
+      path,
+      value === undefined ? "missing field." : "type mismatch.",
+      "array",
+      value,
+    );
   }
 
   if (value.length < minimumItems || value.length > maximumItems) {
-    throw new InvestigationOutputValidationError(
-      `${path} must contain between ${minimumItems} and ${maximumItems} items.`,
+    failValidation(
+      path,
+      "array length is outside the allowed bounds.",
+      `${minimumItems}-${maximumItems} items`,
+      value,
     );
   }
 
@@ -72,8 +149,11 @@ function readEnum<T extends string>(
   path: string,
 ): T {
   if (typeof value !== "string" || !allowedValues.includes(value as T)) {
-    throw new InvestigationOutputValidationError(
-      `${path} must be one of: ${allowedValues.join(", ")}.`,
+    failValidation(
+      path,
+      value === undefined ? "missing field." : "invalid enum value.",
+      `one of: ${allowedValues.join(", ")}`,
+      value,
     );
   }
 
@@ -82,7 +162,13 @@ function readEnum<T extends string>(
 
 function ensureUnique(values: string[], path: string) {
   if (new Set(values).size !== values.length) {
-    throw new InvestigationOutputValidationError(`${path} contains duplicate IDs.`);
+    failValidation(
+      path,
+      "duplicate IDs.",
+      "an array of unique IDs",
+      values,
+      `array(length=${values.length}, contains duplicates)`,
+    );
   }
 }
 
@@ -96,8 +182,12 @@ function ensureReferencesExist(
   );
 
   if (invalidReference) {
-    throw new InvestigationOutputValidationError(
-      `${path} references unknown evidence ID: ${invalidReference}.`,
+    failValidation(
+      path,
+      "unknown evidence reference.",
+      "IDs declared in investigationResult.evidenceUsed",
+      invalidReference,
+      "string(reference not found)",
     );
   }
 }
@@ -145,8 +235,12 @@ function parseEvidenceReference(
   };
 
   if (!isValidDiagnosticSource(reference, diagnosticCase)) {
-    throw new InvestigationOutputValidationError(
-      `${path}.sourceId is not grounded in this DiagnosticCase.`,
+    failValidation(
+      `${path}.sourceId`,
+      "ungrounded source reference.",
+      "an existing source ID from the requested DiagnosticCase",
+      reference.sourceId,
+      "string(reference not found)",
     );
   }
 
@@ -263,8 +357,12 @@ export function parseInvestigationResult(
     );
 
     if (!availableValidationIds.has(validationId)) {
-      throw new InvestigationOutputValidationError(
-        `${path}.validationId is not available in this DiagnosticCase.`,
+      failValidation(
+        `${path}.validationId`,
+        "unknown validation reference.",
+        "an existing nextValidation ID from the requested DiagnosticCase",
+        validationId,
+        "string(reference not found)",
       );
     }
 
@@ -340,8 +438,12 @@ export function parseInvestigationResult(
   };
 
   if (result.diagnosticCaseId !== diagnosticCase.id) {
-    throw new InvestigationOutputValidationError(
-      "investigationResult.diagnosticCaseId does not match the requested case.",
+    failValidation(
+      "investigationResult.diagnosticCaseId",
+      "case identity mismatch.",
+      "the requested DiagnosticCase ID",
+      result.diagnosticCaseId,
+      "string(non-matching value)",
     );
   }
 

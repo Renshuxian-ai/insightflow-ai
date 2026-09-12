@@ -1,12 +1,13 @@
 import "server-only";
 
+import type { DiagnosticCase } from "@/lib/diagnostics/types";
+import { getInvestigationResult } from "@/lib/investigations/mock-data";
+
 import { getAllowedTools } from "../tools/tool-registry";
 import { executeToolRequest } from "../tools/tool-executor";
 import type { ToolExecutionResult } from "../tools/types";
-import type {
-  InvestigationProvider,
-  InvestigationProviderInput,
-} from "../provider";
+import type { AgentModelProvider } from "../provider";
+import type { InvestigationModelDefinition } from "../types";
 import { appendTraceEvent, createAgentTrace } from "./agent-trace";
 import {
   buildFinalGenerationMessage,
@@ -14,7 +15,9 @@ import {
 } from "./agent-prompt";
 import type {
   AgentMessage,
+  AgentModelTurn,
   AgentToolCall,
+  AgentProviderRequest,
   BoundedInvestigationAgentResult,
   ProviderToolDefinition,
 } from "./types";
@@ -22,9 +25,98 @@ import type {
 export const MAX_TOOL_ROUNDS = 2;
 export const MAX_TOOL_CALLS = 3;
 
-type BoundedInvestigationAgentInput = InvestigationProviderInput & {
-  provider: InvestigationProvider;
+type BoundedInvestigationAgentInput = {
+  diagnosticCase: DiagnosticCase;
+  model: InvestigationModelDefinition;
+  provider: AgentModelProvider;
 };
+
+function getDeterministicToolCalls(
+  diagnosticCase: DiagnosticCase,
+  completedToolCalls: number,
+): AgentToolCall[] {
+  const feedbackSignal = diagnosticCase.evidence.feedbackSignals[0];
+
+  if (completedToolCalls > 0) {
+    return [
+      {
+        id: "tool-call-" + diagnosticCase.id + "-feedback",
+        name: "search_feedback",
+        input: { feedbackSignalId: feedbackSignal.id },
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "tool-call-" + diagnosticCase.id + "-metric",
+      name: "query_metric",
+      input: { metricId: diagnosticCase.metric.id },
+    },
+    {
+      id: "tool-call-" + diagnosticCase.id + "-segment",
+      name: "analyze_segment",
+      input: { segmentId: diagnosticCase.context.segment.id },
+    },
+  ];
+}
+
+function createPrototypeTurn(
+  diagnosticCase: DiagnosticCase,
+  request: AgentProviderRequest,
+): AgentModelTurn {
+  if (request.phase === "tool-selection") {
+    const completedToolCalls = request.messages.filter(
+      (message) => message.role === "tool",
+    ).length;
+    const toolCalls = getDeterministicToolCalls(
+      diagnosticCase,
+      completedToolCalls,
+    );
+
+    return {
+      kind: "tool-calls",
+      message: {
+        role: "assistant",
+        content: null,
+        toolCalls,
+      },
+      toolCalls,
+    };
+  }
+
+  const result = getInvestigationResult(diagnosticCase.id);
+
+  if (!result) {
+    throw new Error(
+      "No mock investigation is available for this DiagnosticCase.",
+    );
+  }
+
+  return {
+    kind: "final",
+    message: {
+      role: "assistant",
+      content:
+        "Mock investigation result generated from deterministic tool observations.",
+      toolCalls: [],
+    },
+    output: result,
+  };
+}
+
+function createProviderRequest(
+  provider: AgentModelProvider,
+  diagnosticCase: DiagnosticCase,
+  request: AgentProviderRequest,
+): AgentProviderRequest {
+  return provider.id === "mock"
+    ? {
+        ...request,
+        prototypeTurn: createPrototypeTurn(diagnosticCase, request),
+      }
+    : request;
+}
 
 function getProviderToolDefinitions(): ProviderToolDefinition[] {
   return getAllowedTools().map(({ name, description, inputSchema }) => ({
@@ -134,15 +226,12 @@ export async function runBoundedInvestigationAgent({
       "model-request",
       `Requested tool selection round ${toolRounds + 1}.`,
     );
-    const turn = await provider.runAgentTurn({
-      diagnosticCase,
-      model,
-      request: {
+    const request = createProviderRequest(provider, diagnosticCase, {
         phase: "tool-selection",
         messages,
         tools: providerTools,
-      },
     });
+    const turn = await provider.runAgentTurn({ model, request });
 
     if (turn.kind === "final") {
       appendTraceEvent(
@@ -190,14 +279,14 @@ export async function runBoundedInvestigationAgent({
     "model-request",
     "Requested final investigation generation with tool calling disabled.",
   );
-  const finalTurn = await provider.runAgentTurn({
-    diagnosticCase,
-    model,
-    request: {
+  const finalRequest = createProviderRequest(provider, diagnosticCase, {
       phase: "final-generation",
       messages,
       tools: [],
-    },
+  });
+  const finalTurn = await provider.runAgentTurn({
+    model,
+    request: finalRequest,
   });
 
   if (finalTurn.kind !== "final") {

@@ -1,88 +1,18 @@
-import { getInvestigationResult } from "@/lib/investigations/mock-data";
-import type { DiagnosticCase } from "@/lib/diagnostics/types";
+import "server-only";
 
-import type { AgentModelTurn, AgentToolCall } from "../agent/types";
-import type { InvestigationProvider } from "../provider";
+import type { AgentModelTurn } from "../agent/types";
+import type { AIModelProvider } from "../provider";
 
-function getDeterministicToolCalls(
-  diagnosticCase: DiagnosticCase,
-  completedToolCalls: number,
-): AgentToolCall[] {
-  const feedbackSignal = diagnosticCase.evidence.feedbackSignals[0];
-
-  if (completedToolCalls > 0) {
-    return [
-      {
-        id: `tool-call-${diagnosticCase.id}-feedback`,
-        name: "search_feedback",
-        input: { feedbackSignalId: feedbackSignal.id },
-      },
-    ];
-  }
-
-  return [
-    {
-      id: `tool-call-${diagnosticCase.id}-metric`,
-      name: "query_metric",
-      input: { metricId: diagnosticCase.metric.id },
-    },
-    {
-      id: `tool-call-${diagnosticCase.id}-segment`,
-      name: "analyze_segment",
-      input: { segmentId: diagnosticCase.context.segment.id },
-    },
-  ];
-}
-
-export const mockInvestigationProvider: InvestigationProvider = {
+export const mockModelProvider: AIModelProvider = {
   id: "mock",
   isAvailable() {
     return true;
   },
-  async generate({ diagnosticCase }) {
-    const result = getInvestigationResult(diagnosticCase.id);
-
-    if (!result) {
-      throw new Error("No mock investigation is available for this DiagnosticCase.");
+  async runAgentTurn({ request }): Promise<AgentModelTurn> {
+    if (!request.prototypeTurn) {
+      throw new Error("The Mock Provider requires a prototype model turn.");
     }
 
-    return result;
-  },
-  async runAgentTurn({ diagnosticCase, request }): Promise<AgentModelTurn> {
-    if (request.phase === "tool-selection") {
-      const completedToolCalls = request.messages.filter(
-        (message) => message.role === "tool",
-      ).length;
-      const toolCalls = getDeterministicToolCalls(
-        diagnosticCase,
-        completedToolCalls,
-      );
-
-      return {
-        kind: "tool-calls",
-        message: {
-          role: "assistant",
-          content: null,
-          toolCalls,
-        },
-        toolCalls,
-      };
-    }
-
-    const result = getInvestigationResult(diagnosticCase.id);
-
-    if (!result) {
-      throw new Error("No mock investigation is available for this DiagnosticCase.");
-    }
-
-    return {
-      kind: "final",
-      message: {
-        role: "assistant",
-        content: "Mock investigation result generated from deterministic tool observations.",
-        toolCalls: [],
-      },
-      output: result,
-    };
+    return request.prototypeTurn;
   },
 };

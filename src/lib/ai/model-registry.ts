@@ -1,4 +1,6 @@
 import type {
+  AIModelDefinition,
+  AIModelId,
   InvestigationModelDefinition,
   InvestigationModelId,
   InvestigationModelOption,
@@ -7,16 +9,14 @@ import type {
 export const defaultInvestigationModelId: InvestigationModelId =
   "mock-prototype";
 
-export const investigationModelRegistry: Record<
-  InvestigationModelId,
-  InvestigationModelDefinition
-> = {
+export const aiModelRegistry: Record<AIModelId, AIModelDefinition> = {
   "mock-prototype": {
     id: "mock-prototype",
     label: "Mock Prototype",
     description: "Uses the existing evidence-linked prototype draft.",
     providerId: "mock",
     providerModel: "mock-investigation-v1",
+    capabilities: ["agent-tool-calling"],
   },
   "deepseek-v3": {
     id: "deepseek-v3",
@@ -24,8 +24,14 @@ export const investigationModelRegistry: Record<
     description: "Generates a grounded draft from the selected DiagnosticCase.",
     providerId: "deepseek",
     providerModel: "deepseek-chat",
+    capabilities: ["structured-json", "agent-tool-calling"],
   },
 };
+
+export const investigationModelRegistry: Record<
+  InvestigationModelId,
+  InvestigationModelDefinition
+> = aiModelRegistry;
 
 export const investigationModelOptions: InvestigationModelOption[] =
   Object.values(investigationModelRegistry).map(
@@ -45,4 +51,8 @@ export function getInvestigationModel(
   modelId: InvestigationModelId,
 ): InvestigationModelDefinition {
   return investigationModelRegistry[modelId];
+}
+
+export function getAIModel(modelId: AIModelId): AIModelDefinition {
+  return aiModelRegistry[modelId];
 }

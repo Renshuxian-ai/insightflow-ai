@@ -3,15 +3,23 @@ import type { AgentTrace } from "./agent/types";
 
 export type AIProviderId = "mock" | "deepseek";
 
-export type InvestigationModelId = "mock-prototype" | "deepseek-v3";
+export type AIModelId = "mock-prototype" | "deepseek-v3";
 
-export type InvestigationModelDefinition = {
-  id: InvestigationModelId;
+export type InvestigationModelId = AIModelId;
+
+export type AIModelCapability = "structured-json" | "agent-tool-calling";
+
+export type AIModelDefinition<TModelId extends string = AIModelId> = {
+  id: TModelId;
   label: string;
   description: string;
   providerId: AIProviderId;
   providerModel: string;
+  capabilities: readonly AIModelCapability[];
 };
+
+export type InvestigationModelDefinition =
+  AIModelDefinition<InvestigationModelId>;
 
 export type InvestigationModelOption = Pick<
   InvestigationModelDefinition,

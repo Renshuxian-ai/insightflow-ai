@@ -7,12 +7,79 @@ import {
 } from "./output-schema";
 import { defaultInvestigationModelId } from "./model-registry";
 import { routeInvestigationModel } from "./model-router";
-import { ProviderUnavailableError } from "./provider";
+import {
+  ProviderRequestError,
+  ProviderUnavailableError,
+} from "./provider";
 import type {
   InvestigationFallbackReason,
   InvestigationGenerationResult,
+  InvestigationModelDefinition,
   InvestigationModelId,
 } from "./types";
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function attachGeneratedInvestigationMetadata(
+  value: unknown,
+  diagnosticCase: DiagnosticCase,
+  model: InvestigationModelDefinition,
+): unknown {
+  if (model.providerId === "mock" || !isRecord(value)) {
+    return value;
+  }
+
+  const workingHypothesis = value.workingHypothesis;
+
+  return {
+    ...value,
+    id: `investigation-${diagnosticCase.id}-${model.id}`,
+    diagnosticCaseId: diagnosticCase.id,
+    source: model.providerId,
+    status: "generated-draft",
+    workingHypothesis: isRecord(workingHypothesis)
+      ? {
+          ...workingHypothesis,
+          id: `hypothesis-${diagnosticCase.id}-${model.id}`,
+          status: "unvalidated",
+        }
+      : workingHypothesis,
+  };
+}
+
+function validateGeneratedInvestigation(
+  value: unknown,
+  diagnosticCase: DiagnosticCase,
+) {
+  try {
+    return parseInvestigationResult(value, diagnosticCase);
+  } catch (error) {
+    if (
+      process.env.NODE_ENV === "development" &&
+      error instanceof InvestigationOutputValidationError
+    ) {
+      const { path, issue, expected, receivedType, received } =
+        error.diagnostic;
+
+      console.error(
+        [
+          "Investigation validation failed:",
+          `path=${path}`,
+          `reason=${issue}`,
+          `expected=${expected}`,
+          `receivedType=${receivedType}`,
+          `receivedSummary=${received}`,
+        ].join("\n"),
+      );
+    }
+
+    throw error;
+  }
+}
 
 async function generateWithModel(
   diagnosticCase: DiagnosticCase,
@@ -30,8 +97,14 @@ async function generateWithModel(
     provider,
   });
 
+  const outputWithMetadata = attachGeneratedInvestigationMetadata(
+    agentResult.output,
+    diagnosticCase,
+    model,
+  );
+
   return {
-    result: parseInvestigationResult(agentResult.output, diagnosticCase),
+    result: validateGeneratedInvestigation(outputWithMetadata, diagnosticCase),
     trace: agentResult.trace,
   };
 }
@@ -43,7 +116,8 @@ function getFallbackReason(error: unknown): InvestigationFallbackReason {
 
   if (
     error instanceof InvestigationOutputValidationError ||
-    error instanceof SyntaxError
+    error instanceof SyntaxError ||
+    (error instanceof ProviderRequestError && error.code === "invalid-json")
   ) {
     return "invalid-output";
   }

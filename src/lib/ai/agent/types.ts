@@ -39,6 +39,7 @@ export type AgentProviderRequest = {
   phase: AgentTurnPhase;
   messages: AgentMessage[];
   tools: readonly ProviderToolDefinition[];
+  prototypeTurn?: AgentModelTurn;
 };
 
 export type AgentModelTurn =
