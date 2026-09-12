@@ -42,6 +42,29 @@ export type SemanticSuggestion = SemanticMappingValue & {
   ambiguity: string | null;
 };
 
+/**
+ * Model-controlled fields only. The server stamps the SemanticSuggestion id
+ * and inferenceSource after this output has passed runtime validation.
+ */
+export type SemanticAiAlternativeOutput = {
+  semanticRole: SemanticRole;
+  semanticType: SemanticType;
+  businessMeaning: string | null;
+  semanticConfidence: number;
+  reason: string;
+};
+
+export type SemanticAiSuggestionOutput = {
+  stableFieldKey: string;
+  semanticRole: SemanticRole;
+  semanticType: SemanticType;
+  businessMeaning: string | null;
+  semanticConfidence: number;
+  explanation: string;
+  alternatives: SemanticAiAlternativeOutput[];
+  ambiguity: string | null;
+};
+
 export type SemanticSuggestionBatch = {
   physicalSchema: PhysicalSchemaReference;
   suggestions: SemanticSuggestion[];
