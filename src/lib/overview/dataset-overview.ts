@@ -205,8 +205,55 @@ function normalizeEventValue(value: DatasetCellValue): string | null {
   return normalizeCellText(value)?.toLocaleLowerCase("en-US") ?? null;
 }
 
+const DASHED_CSV_TEMPORAL_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?)?$/;
+const SLASHED_CSV_TEMPORAL_PATTERN =
+  /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/;
+
+function getCommonCsvDateKey(value: DatasetCellValue): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const text = value.trim();
+  const match =
+    DASHED_CSV_TEMPORAL_PATTERN.exec(text) ??
+    SLASHED_CSV_TEMPORAL_PATTERN.exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4] ?? 0);
+  const minute = Number(match[5] ?? 0);
+  const second = Number(match[6] ?? 0);
+  const millisecond = Number(match[7] ?? 0);
+  const parsed = new Date(0);
+  parsed.setUTCFullYear(year, month - 1, day);
+  parsed.setUTCHours(hour, minute, second, millisecond);
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day ||
+    parsed.getUTCHours() !== hour ||
+    parsed.getUTCMinutes() !== minute ||
+    parsed.getUTCSeconds() !== second ||
+    parsed.getUTCMilliseconds() !== millisecond
+  ) {
+    return null;
+  }
+
+  return [match[1], match[2], match[3]].join("-");
+}
+
 function getDateKey(value: DatasetCellValue): string | null {
-  return toTemporalValue(value)?.slice(0, 10) ?? null;
+  const strictTemporalValue = toTemporalValue(value);
+
+  return strictTemporalValue?.slice(0, 10) ?? getCommonCsvDateKey(value);
 }
 
 function shiftDate(date: string, days: number): string {

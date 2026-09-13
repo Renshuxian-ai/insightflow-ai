@@ -1,13 +1,22 @@
-import type { TrendPoint } from "@/lib/overview-mock-data";
+import type { ProductTrendPoint } from "@/lib/overview/overview-view-model";
 
 type ProductTrendCardProps = {
-  data: TrendPoint[];
+  metricLabel: string;
+  latestValue: string;
+  change: string;
+  changeDirection: "positive" | "negative" | "neutral";
+  data: ProductTrendPoint[];
 };
 
-function createLinePoints(data: TrendPoint[]) {
+function createLinePoints(data: ProductTrendPoint[]) {
   const chartWidth = 600;
   const chartHeight = 178;
   const padding = 14;
+
+  if (data.length === 1) {
+    return `${chartWidth / 2},${chartHeight / 2}`;
+  }
+
   const values = data.map((point) => point.value);
   const minimum = Math.min(...values) - 5;
   const maximum = Math.max(...values) + 5;
@@ -25,9 +34,21 @@ function createLinePoints(data: TrendPoint[]) {
     .join(" ");
 }
 
-export function ProductTrendCard({ data }: ProductTrendCardProps) {
+export function ProductTrendCard({
+  metricLabel,
+  latestValue,
+  change,
+  changeDirection,
+  data,
+}: ProductTrendCardProps) {
   const linePoints = createLinePoints(data);
   const fillPoints = "14,164 " + linePoints + " 586,164";
+  const changeClassName =
+    changeDirection === "positive"
+      ? "text-[#168251]"
+      : changeDirection === "negative"
+        ? "text-[#c44242]"
+        : "text-[#687387]";
 
   return (
     <section className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]" aria-labelledby="product-trend-title">
@@ -35,16 +56,16 @@ export function ProductTrendCard({ data }: ProductTrendCardProps) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Product health</p>
           <h2 id="product-trend-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]">Product trend</h2>
-          <p className="mt-1 text-[13px] text-[#778196]">Daily active users over the last 30 days</p>
+          <p className="mt-1 text-[13px] text-[#778196]">{metricLabel}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-semibold tracking-[-0.03em] text-[#172033]">12.5k</p>
-          <p className="text-xs font-medium text-[#168251]">+8.2% vs. previous period</p>
+          <p className="text-lg font-semibold tracking-[-0.03em] text-[#172033]">{latestValue}</p>
+          <p className={`text-xs font-medium ${changeClassName}`}>{change}</p>
         </div>
       </div>
 
       <div className="mt-5 overflow-hidden">
-        <svg viewBox="0 0 600 178" className="h-[190px] w-full" preserveAspectRatio="none" role="img" aria-label="Daily active users trend rising over the last 30 days">
+        <svg viewBox="0 0 600 178" className="h-[190px] w-full" preserveAspectRatio="none" role="img" aria-label={metricLabel}>
           <defs>
             <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#3559e8" stopOpacity="0.18" />

@@ -216,6 +216,34 @@ function createFixtureDataset(): ParsedDataset {
   };
 }
 
+function createDateParsingFixtureDataset(): ParsedDataset {
+  const dataset = createFixtureDataset();
+  const timestamps = [
+    "2026-02-01",
+    "2026-02-02 01:02:03",
+    "2026-02-03 01:02:03.123",
+    "2026/02/04",
+    "2026/02/05 01:02:03",
+    "2026/02/06 01:02",
+    "2026-02-30 01:02:03",
+    "not-a-date",
+  ];
+  const rows = timestamps.map((timestamp, index) => [
+    `date-user-${index}`,
+    timestamp,
+    null,
+    null,
+    null,
+    null,
+  ]);
+
+  return {
+    ...dataset,
+    rows,
+    rowCount: rows.length,
+  };
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
@@ -316,6 +344,27 @@ export function runDatasetOverviewFixtures() {
       unavailableResult.metrics.d1Retention.status === "unavailable" &&
       unavailableResult.metrics.coreConversion.status === "unavailable",
     "Metrics with a missing user-id must be unavailable rather than zero.",
+  );
+
+  const dateParsingResult = createDatasetOverview(
+    createDateParsingFixtureDataset(),
+    schema,
+  );
+  assert(
+    dateParsingResult.dailyDau.status === "available",
+    "DAU should accept supported CSV timestamp formats.",
+  );
+  assert(
+    dateParsingResult.dailyDau.points.map((point) => point.date).join(",") ===
+      [
+        "2026-02-01",
+        "2026-02-02",
+        "2026-02-03",
+        "2026-02-04",
+        "2026-02-05",
+        "2026-02-06",
+      ].join(","),
+    "Supported CSV timestamps should produce date keys and invalid dates should be ignored.",
   );
 
   return {

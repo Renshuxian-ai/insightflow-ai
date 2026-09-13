@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import type { Anomaly } from "@/lib/overview-mock-data";
+import type { AnomalyCardViewModel } from "@/lib/overview/overview-view-model";
 
 type AnomalyCardProps = {
-  anomaly: Anomaly;
+  anomaly: AnomalyCardViewModel;
 };
 
 export function AnomalyCard({ anomaly }: AnomalyCardProps) {
@@ -18,14 +18,14 @@ export function AnomalyCard({ anomaly }: AnomalyCardProps) {
           </span>
           <h3 className="mt-2 text-sm font-semibold tracking-[-0.01em] text-[#263247]">{anomaly.title}</h3>
         </div>
-        {anomaly.diagnosticAvailable ? (
+        {anomaly.showInvestigationAction && anomaly.diagnosticAvailable ? (
           <Link
             href={`/ai-diagnostics/${anomaly.id}`}
             className="shrink-0 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb]"
           >
             Investigate <span aria-hidden="true">→</span>
           </Link>
-        ) : (
+        ) : anomaly.showInvestigationAction ? (
           <button
             type="button"
             disabled
@@ -34,12 +34,21 @@ export function AnomalyCard({ anomaly }: AnomalyCardProps) {
           >
             Investigate <span aria-hidden="true">→</span>
           </button>
-        )}
+        ) : null}
       </div>
       <p className="mt-3 text-sm font-semibold text-[#263247]">
-        {anomaly.metric} <span className="font-medium text-[#c44242]">{anomaly.change}</span>
+        {anomaly.metricLabel ? `${anomaly.metricLabel}: ` : null}
+        {anomaly.current}{" "}
+        <span className="font-medium text-[#c44242]">{anomaly.change}</span>
       </p>
-      <p className="mt-1.5 text-xs leading-5 text-[#7e8798]">{anomaly.context}</p>
+      {anomaly.previous ? (
+        <p className="mt-1 text-xs text-[#7e8798]">
+          Previous: {anomaly.previous}
+        </p>
+      ) : null}
+      <p className="mt-1.5 text-xs leading-5 text-[#7e8798]">
+        {anomaly.evidenceSummary}
+      </p>
     </article>
   );
 }

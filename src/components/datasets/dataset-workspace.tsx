@@ -214,6 +214,8 @@ export function DatasetWorkspace() {
     setCurrentReviewKey,
     sheetReviewLabels,
     setSheetReviewLabels,
+    requestDatasetOverview,
+    clearDatasetOverview,
     requestId: requestIdRef,
     activeRequest: activeRequestRef,
     semanticRequestId: semanticRequestIdRef,
@@ -305,6 +307,8 @@ export function DatasetWorkspace() {
       draft.inferenceMode,
       draft.datasetContext,
     );
+
+    return restoredSchema;
   }
 
   async function generateSemanticDraft(
@@ -383,6 +387,13 @@ export function DatasetWorkspace() {
             latestDraft.schema,
           )
         : payload.autoUsePolicy;
+
+      if (
+        semanticSchema?.status === "confirmed" &&
+        nextSchema.status !== "confirmed"
+      ) {
+        clearDatasetOverview();
+      }
 
       setSemanticSchema(nextSchema);
       setAutoUsePolicy(nextPolicy);
@@ -498,12 +509,21 @@ export function DatasetWorkspace() {
 
       if (cachedDraft) {
         try {
-          restoreDraft(
+          const restoredSchema = restoreDraft(
             cachedDraft,
             reviewKey,
             snapshotId,
             nextDataset.schema,
           );
+
+          if (restoredSchema.status === "confirmed") {
+            void requestDatasetOverview({
+              sourceFile: file,
+              dataset: nextDataset,
+              semanticSchema: restoredSchema,
+            });
+          }
+
           return;
         } catch {
           // A fingerprint/key match is still verified before a draft is reused.
@@ -545,6 +565,7 @@ export function DatasetWorkspace() {
   }
 
   function handleFileSelected(file: File) {
+    clearDatasetOverview();
     clearCurrentSemanticView(
       sourceFile ? "A new dataset has its own field understanding." : null,
     );
@@ -576,6 +597,7 @@ export function DatasetWorkspace() {
       return;
     }
 
+    clearDatasetOverview();
     semanticRequestIdRef.current += 1;
     activeSemanticRequestRef.current?.abort();
     activeSemanticRequestRef.current = null;
@@ -593,6 +615,7 @@ export function DatasetWorkspace() {
     requestIdRef.current += 1;
     activeRequestRef.current?.abort();
     activeRequestRef.current = null;
+    clearDatasetOverview();
     clearCurrentSemanticView(null);
     setSourceFile(null);
     setSourceSnapshotId(null);
@@ -610,12 +633,14 @@ export function DatasetWorkspace() {
       !currentReviewKey ||
       !isSemanticSchemaForPhysicalSchema(nextSchema, dataset.schema)
     ) {
+      clearDatasetOverview();
       clearCurrentSemanticView(
         "The saved review did not match the current data structure.",
       );
       return;
     }
 
+    const previousSchemaWasConfirmed = semanticSchema?.status === "confirmed";
     setSemanticSchema(nextSchema);
     storeDraft(
       currentReviewKey,
@@ -627,6 +652,16 @@ export function DatasetWorkspace() {
       semanticInferenceMode,
       datasetContext,
     );
+
+    if (nextSchema.status === "confirmed" && sourceFile) {
+      void requestDatasetOverview({
+        sourceFile,
+        dataset,
+        semanticSchema: nextSchema,
+      });
+    } else if (previousSchemaWasConfirmed) {
+      clearDatasetOverview();
+    }
   }
 
   function handleDatasetContextChange(value: string) {

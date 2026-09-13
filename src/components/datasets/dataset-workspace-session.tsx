@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useRef,
@@ -18,6 +19,7 @@ import type {
   SemanticSchema,
 } from "@/lib/datasets/semantic/types";
 import type { Dataset } from "@/lib/datasets/types";
+import type { DatasetOverviewResult } from "@/lib/overview/dataset-overview";
 
 export type WorkspaceStatus = "idle" | "uploading" | "ready" | "error";
 
@@ -27,6 +29,8 @@ export type DatasetSemanticReviewStatus =
   | "ready"
   | "empty"
   | "error";
+
+export type DatasetOverviewStatus = "idle" | "loading" | "ready" | "error";
 
 export type SemanticReviewDraft = {
   snapshotId: string;
@@ -42,6 +46,12 @@ export type SemanticReviewDraft = {
 
 type SessionRef<T> = {
   current: T;
+};
+
+type DatasetOverviewRequest = {
+  sourceFile: File;
+  dataset: Dataset;
+  semanticSchema: SemanticSchema;
 };
 
 type DatasetWorkspaceSession = {
@@ -81,6 +91,14 @@ type DatasetWorkspaceSession = {
   setCurrentReviewKey: Dispatch<SetStateAction<string | null>>;
   sheetReviewLabels: Record<string, string>;
   setSheetReviewLabels: Dispatch<SetStateAction<Record<string, string>>>;
+  datasetOverview: DatasetOverviewResult | null;
+  overviewStatus: DatasetOverviewStatus;
+  overviewError: string | null;
+  requestDatasetOverview: (
+    request: DatasetOverviewRequest,
+  ) => Promise<void>;
+  retryDatasetOverview: () => void;
+  clearDatasetOverview: () => void;
   requestId: SessionRef<number>;
   activeRequest: SessionRef<AbortController | null>;
   semanticRequestId: SessionRef<number>;
@@ -89,6 +107,45 @@ type DatasetWorkspaceSession = {
   draftUpdateSequence: SessionRef<number>;
   reviewDrafts: SessionRef<Map<string, SemanticReviewDraft>>;
 };
+
+type OverviewApiErrorPayload = {
+  error?: {
+    message?: string;
+  };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isDatasetOverviewResult(
+  value: unknown,
+): value is DatasetOverviewResult {
+  if (!isRecord(value) || value.version !== 1 || value.source !== "dataset") {
+    return false;
+  }
+
+  if (!isRecord(value.metrics) || !isRecord(value.dailyDau)) {
+    return false;
+  }
+
+  return (
+    isRecord(value.metrics.dau) &&
+    isRecord(value.metrics.d1Retention) &&
+    isRecord(value.metrics.coreConversion) &&
+    isRecord(value.metrics.feedback) &&
+    (value.primaryAnomaly === null || isRecord(value.primaryAnomaly))
+  );
+}
+
+async function readOverviewError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as OverviewApiErrorPayload;
+    return payload.error?.message ?? "Dataset analytics could not be prepared.";
+  } catch {
+    return "Dataset analytics could not be prepared. Please try again.";
+  }
+}
 
 const DatasetWorkspaceSessionContext =
   createContext<DatasetWorkspaceSession | null>(null);
@@ -122,6 +179,11 @@ export function DatasetWorkspaceSessionProvider({
   const [sheetReviewLabels, setSheetReviewLabels] = useState<
     Record<string, string>
   >({});
+  const [datasetOverview, setDatasetOverview] =
+    useState<DatasetOverviewResult | null>(null);
+  const [overviewStatus, setOverviewStatus] =
+    useState<DatasetOverviewStatus>("idle");
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const requestId = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const semanticRequestId = useRef(0);
@@ -129,6 +191,111 @@ export function DatasetWorkspaceSessionProvider({
   const snapshotSequence = useRef(0);
   const draftUpdateSequence = useRef(0);
   const reviewDrafts = useRef(new Map<string, SemanticReviewDraft>());
+  const overviewRequestId = useRef(0);
+  const activeOverviewRequest = useRef<AbortController | null>(null);
+
+  const clearDatasetOverview = useCallback(() => {
+    overviewRequestId.current += 1;
+    activeOverviewRequest.current?.abort();
+    activeOverviewRequest.current = null;
+    setDatasetOverview(null);
+    setOverviewStatus("idle");
+    setOverviewError(null);
+  }, []);
+
+  const requestDatasetOverview = useCallback(
+    async (overviewRequest: DatasetOverviewRequest) => {
+      if (overviewRequest.semanticSchema.status !== "confirmed") {
+        clearDatasetOverview();
+        return;
+      }
+
+      const currentRequestId = overviewRequestId.current + 1;
+      overviewRequestId.current = currentRequestId;
+      activeOverviewRequest.current?.abort();
+
+      const controller = new AbortController();
+      activeOverviewRequest.current = controller;
+      setDatasetOverview(null);
+      setOverviewStatus("loading");
+      setOverviewError(null);
+
+      const formData = new FormData();
+      formData.append("file", overviewRequest.sourceFile);
+      formData.append(
+        "semanticSchema",
+        JSON.stringify(overviewRequest.semanticSchema),
+      );
+
+      const sheetName =
+        overviewRequest.dataset.schema.selectedSheetName ??
+        overviewRequest.semanticSchema.physicalSchema.selectedSheetName;
+
+      if (sheetName) {
+        formData.append("sheetName", sheetName);
+      }
+
+      try {
+        const response = await fetch("/api/datasets/overview", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(await readOverviewError(response));
+        }
+
+        const result: unknown = await response.json();
+
+        if (!isDatasetOverviewResult(result)) {
+          throw new Error(
+            "Dataset analytics returned an invalid result. Please try again.",
+          );
+        }
+
+        if (overviewRequestId.current !== currentRequestId) {
+          return;
+        }
+
+        setDatasetOverview(result);
+        setOverviewStatus("ready");
+        setOverviewError(null);
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          overviewRequestId.current !== currentRequestId
+        ) {
+          return;
+        }
+
+        setDatasetOverview(null);
+        setOverviewStatus("error");
+        setOverviewError(
+          error instanceof Error
+            ? error.message
+            : "Dataset analytics could not be prepared. Please try again.",
+        );
+      } finally {
+        if (overviewRequestId.current === currentRequestId) {
+          activeOverviewRequest.current = null;
+        }
+      }
+    },
+    [clearDatasetOverview],
+  );
+
+  const retryDatasetOverview = useCallback(() => {
+    if (!sourceFile || !dataset || semanticSchema?.status !== "confirmed") {
+      return;
+    }
+
+    void requestDatasetOverview({
+      sourceFile,
+      dataset,
+      semanticSchema,
+    });
+  }, [dataset, requestDatasetOverview, semanticSchema, sourceFile]);
 
   const value = useMemo<DatasetWorkspaceSession>(
     () => ({
@@ -162,6 +329,12 @@ export function DatasetWorkspaceSessionProvider({
       setCurrentReviewKey,
       sheetReviewLabels,
       setSheetReviewLabels,
+      datasetOverview,
+      overviewStatus,
+      overviewError,
+      requestDatasetOverview,
+      retryDatasetOverview,
+      clearDatasetOverview,
       requestId,
       activeRequest,
       semanticRequestId,
@@ -172,8 +345,10 @@ export function DatasetWorkspaceSessionProvider({
     }),
     [
       autoUsePolicy,
+      clearDatasetOverview,
       currentReviewKey,
       dataset,
+      datasetOverview,
       datasetContext,
       error,
       fieldEvidence,
@@ -186,6 +361,10 @@ export function DatasetWorkspaceSessionProvider({
       sourceFile,
       sourceSnapshotId,
       status,
+      overviewError,
+      overviewStatus,
+      requestDatasetOverview,
+      retryDatasetOverview,
     ],
   );
 
