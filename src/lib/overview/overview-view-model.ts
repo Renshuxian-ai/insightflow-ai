@@ -194,7 +194,7 @@ function createDatasetTrend(
     change: change ?? "No previous active date",
     changeDirection: change ? getChangeDirection(changeValue) : "neutral",
     data: datasetOverview.dailyDau.points.map((point) => ({
-      label: point.date,
+      label: point.date.slice(5),
       value: point.value,
     })),
   };
