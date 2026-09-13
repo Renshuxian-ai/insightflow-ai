@@ -22,9 +22,15 @@ export function DiagnosticsPage({ diagnosticCase }: DiagnosticsPageProps) {
 
       <div className="mt-6 space-y-6">
         <DiagnosticSummary summary={diagnosticCase.summary} />
-        <DiagnosticEvidence evidence={diagnosticCase.evidence} />
+        <DiagnosticEvidence
+          evidence={diagnosticCase.evidence}
+          source={diagnosticCase.source}
+        />
         <DiagnosticReasoning reasoning={diagnosticCase.reasoning} />
-        <DiagnosticTrace traceSteps={diagnosticCase.traceSteps} />
+        <DiagnosticTrace
+          traceSteps={diagnosticCase.traceSteps}
+          source={diagnosticCase.source}
+        />
         <InvestigationAssistant
           key={diagnosticCase.id}
           diagnosticCase={diagnosticCase}

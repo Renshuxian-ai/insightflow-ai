@@ -2,9 +2,12 @@ import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
 type DiagnosticEvidenceProps = {
   evidence: DiagnosticCase["evidence"];
+  source: DiagnosticCase["source"];
 };
 
-export function DiagnosticEvidence({ evidence }: DiagnosticEvidenceProps) {
+export function DiagnosticEvidence({ evidence, source }: DiagnosticEvidenceProps) {
+  const isDatasetCase = source === "dataset";
+
   return (
     <section aria-labelledby="diagnostic-evidence-title">
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
@@ -17,7 +20,11 @@ export function DiagnosticEvidence({ evidence }: DiagnosticEvidenceProps) {
             Signals behind the anomaly
           </h2>
         </div>
-        <p className="text-xs text-[#8a94a6]">Behavior and feedback are the supporting evidence.</p>
+        <p className="text-xs text-[#8a94a6]">
+          {isDatasetCase
+            ? "Only evidence calculated from the uploaded dataset is shown."
+            : "Behavior and feedback are the supporting evidence."}
+        </p>
       </div>
 
       <div className="mt-4 grid gap-5 xl:grid-cols-2">
@@ -30,7 +37,7 @@ export function DiagnosticEvidence({ evidence }: DiagnosticEvidenceProps) {
               </h3>
             </div>
             <span className="rounded-md bg-[#edf1ff] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#3559e8]">
-              Mock data
+              {isDatasetCase ? "Deterministic evidence" : "Mock data"}
             </span>
           </div>
 
@@ -62,12 +69,16 @@ export function DiagnosticEvidence({ evidence }: DiagnosticEvidenceProps) {
               </h3>
             </div>
             <span className="rounded-md bg-[#edf1ff] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#3559e8]">
-              Mock data
+              {isDatasetCase ? "Uploaded dataset" : "Mock data"}
             </span>
           </div>
 
           <div className="mt-5 space-y-3">
-            {evidence.feedbackSignals.map((signal) => (
+            {evidence.feedbackSignals.length === 0 ? (
+              <p className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 text-xs leading-5 text-[#778196]">
+                No feedback evidence is linked to this dataset anomaly.
+              </p>
+            ) : evidence.feedbackSignals.map((signal) => (
               <article key={signal.id} className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -81,7 +92,7 @@ export function DiagnosticEvidence({ evidence }: DiagnosticEvidenceProps) {
                 <p className="mt-2 text-xs leading-5 text-[#778196]">{signal.finding}</p>
 
                 {signal.snippets.length > 0 ? (
-                  <div className="mt-3 space-y-2" aria-label={`Mock feedback excerpts for ${signal.topic}`}>
+                  <div className="mt-3 space-y-2" aria-label={`${isDatasetCase ? "Dataset" : "Mock"} feedback excerpts for ${signal.topic}`}>
                     {signal.snippets.map((snippet) => (
                       <blockquote
                         key={snippet}

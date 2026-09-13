@@ -2,9 +2,12 @@ import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
 type DiagnosticTraceProps = {
   traceSteps: DiagnosticCase["traceSteps"];
+  source: DiagnosticCase["source"];
 };
 
-export function DiagnosticTrace({ traceSteps }: DiagnosticTraceProps) {
+export function DiagnosticTrace({ traceSteps, source }: DiagnosticTraceProps) {
+  const isDatasetCase = source === "dataset";
+
   return (
     <section aria-labelledby="diagnostic-trace-title">
       <details className="group rounded-xl border border-[#e7eaf0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
@@ -15,14 +18,18 @@ export function DiagnosticTrace({ traceSteps }: DiagnosticTraceProps) {
                 id="diagnostic-trace-title"
                 className="text-base font-semibold tracking-[-0.02em] text-[#172033]"
               >
-                Signals checked · Mock trace
+                {isDatasetCase
+                  ? "Signals checked · Deterministic calculation"
+                  : "Signals checked · Mock trace"}
               </h2>
               <span className="rounded-md bg-[#edf1ff] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#3559e8]">
-                Prototype
+                {isDatasetCase ? "Uploaded dataset" : "Prototype"}
               </span>
             </div>
             <p className="mt-1.5 text-xs leading-5 text-[#778196]">
-              An illustrative sequence only. No AI agent or workflow engine executed these steps.
+              {isDatasetCase
+                ? "This trace records deterministic dataset calculations; no AI agent executed these steps."
+                : "An illustrative sequence only. No AI agent or workflow engine executed these steps."}
             </p>
           </div>
           <span
@@ -50,7 +57,9 @@ export function DiagnosticTrace({ traceSteps }: DiagnosticTraceProps) {
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-[#344056]">{step.label}</h3>
                     <span className="rounded-md bg-[#f2f4f8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-[#778196]">
-                      {step.status === "mock-checked" ? "Mock checked" : step.status}
+                      {step.status === "mock-checked"
+                        ? "Mock checked"
+                        : "Dataset calculated"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-[#778196]">{step.description}</p>

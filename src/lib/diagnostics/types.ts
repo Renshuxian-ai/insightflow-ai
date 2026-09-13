@@ -47,7 +47,7 @@ export type DiagnosticTraceStep = {
   id: string;
   label: string;
   description: string;
-  status: "mock-checked";
+  status: "mock-checked" | "dataset-calculated";
   evidenceIds: string[];
 };
 
@@ -59,7 +59,7 @@ export type NextValidation = {
 
 export type DiagnosticCase = {
   id: string;
-  source: "mock";
+  source: "mock" | "dataset";
   status: "ready";
   severity: DiagnosticSeverity;
   title: string;
@@ -77,7 +77,7 @@ export type DiagnosticCase = {
   };
   evidence: {
     behaviorSignals: [BehaviorSignal, ...BehaviorSignal[]];
-    feedbackSignals: [FeedbackSignal, ...FeedbackSignal[]];
+    feedbackSignals: FeedbackSignal[];
   };
   reasoning: {
     observation: ReasoningStatement;

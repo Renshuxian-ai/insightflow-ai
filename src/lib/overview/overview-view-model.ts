@@ -158,8 +158,8 @@ function createDatasetAnomalyViewModel(
     previous: formatValue(anomaly.previous, anomaly.unit),
     change: formatAnomalyChange(anomaly),
     evidenceSummary: anomaly.evidenceSummary,
-    diagnosticAvailable: false,
-    showInvestigationAction: false,
+    diagnosticAvailable: true,
+    showInvestigationAction: true,
   };
 }
 

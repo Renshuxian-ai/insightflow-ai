@@ -10,6 +10,7 @@ type DiagnosticHeaderProps = {
 export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
   const { context, metric } = diagnosticCase;
   const highSeverity = diagnosticCase.severity === "HIGH";
+  const isDatasetCase = diagnosticCase.source === "dataset";
 
   return (
     <header className="border-b border-[#e6e9ef] pb-6">
@@ -34,7 +35,9 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
               {diagnosticCase.severity}
             </span>
             <span className="inline-flex rounded-md border border-[#dce2ef] bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6f7a8e]">
-              Prototype diagnostic · Mock data
+              {isDatasetCase
+                ? "Dataset diagnostic · Uploaded dataset"
+                : "Prototype diagnostic · Mock data"}
             </span>
           </div>
 
@@ -45,7 +48,9 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
             {diagnosticCase.title}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f7a8e]">
-            Review the connected behavior and feedback signals before deciding what to validate next.
+            {isDatasetCase
+              ? "Review the deterministic metric evidence before deciding what to analyze next."
+              : "Review the connected behavior and feedback signals before deciding what to validate next."}
           </p>
         </div>
 
