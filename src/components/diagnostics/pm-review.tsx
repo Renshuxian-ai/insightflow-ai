@@ -87,7 +87,7 @@ export function PMReviewPanel({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#3559e8]">
-                PM Review
+                Human review
               </p>
               <span className="rounded-md bg-[#eaf8f0] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.06em] text-[#27714b]">
                 Review recorded
@@ -140,7 +140,7 @@ export function PMReviewPanel({
                 </span>
                 {confirmedReview.refinedHypothesis ? (
                   <span className="rounded-md bg-[#edf1ff] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.06em] text-[#6072b8]">
-                    PM refined
+                    Human refined
                   </span>
                 ) : null}
               </div>
@@ -168,7 +168,7 @@ export function PMReviewPanel({
         {confirmedReview.note ? (
           <div className="mt-3 rounded-lg border border-[#e9ecf1] bg-white px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#7e8798]">
-              PM note
+              Review note
             </p>
             <p className="mt-1 text-xs leading-5 text-[#5f6b80]">
               {confirmedReview.note}
@@ -177,7 +177,8 @@ export function PMReviewPanel({
         ) : null}
 
         <p className="mt-3 text-[11px] leading-5 text-[#8a94a6]">
-          This review records a product manager&apos;s decision for this page session. It does not confirm causality or validate the hypothesis.
+          This records a human decision for this page session. It does not
+          confirm causality or validate the hypothesis.
         </p>
       </section>
     );
@@ -196,13 +197,13 @@ export function PMReviewPanel({
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#3559e8]">
-            PM Review
+            Human review
           </p>
           <h3
             id="pm-review-title"
             className="mt-1 text-base font-semibold text-[#172033]"
           >
-            Decide how this AI suggestion should move forward
+            Decide how this suggestion should move forward
           </h3>
           <p className="mt-1 text-xs leading-5 text-[#778196]">
             The AI draft remains read-only. Your decision is stored separately and only for this page session.
@@ -357,7 +358,7 @@ export function PMReviewPanel({
       {decision ? (
         <div className="mt-5">
           <label htmlFor="pm-review-note" className="text-xs font-semibold text-[#344056]">
-            PM note <span className="font-normal text-[#98a1b1]">(optional)</span>
+            Review note <span className="font-normal text-[#98a1b1]">(optional)</span>
           </label>
           <textarea
             id="pm-review-note"

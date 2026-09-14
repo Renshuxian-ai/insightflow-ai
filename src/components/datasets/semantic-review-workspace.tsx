@@ -13,7 +13,10 @@ import {
   getSemanticSchemaUnderstandings,
   type SemanticFieldUnderstanding,
 } from "@/lib/datasets/semantic/auto-use-policy";
-import { getSemanticTypeDefinition } from "@/lib/datasets/semantic/semantic-type-registry";
+import {
+  getSemanticTypeDefinition,
+  SEMANTIC_TYPE_IDS,
+} from "@/lib/datasets/semantic/semantic-type-registry";
 import type {
   SemanticAutoUsePolicyResult,
   SemanticFieldMapping,
@@ -65,6 +68,20 @@ const filterOptions: Array<{
   { value: "unresolved", label: "Unresolved" },
   { value: "all", label: "All" },
 ];
+
+function isCoreAnalysisField(
+  field: SemanticFieldMapping,
+  understanding: SemanticFieldUnderstanding,
+): boolean {
+  const semanticType =
+    understanding.effectiveMapping?.semanticType ??
+    field.suggestion?.semanticType;
+
+  return (
+    semanticType === SEMANTIC_TYPE_IDS.userId ||
+    semanticType === SEMANTIC_TYPE_IDS.eventTimestamp
+  );
+}
 
 function getFieldStatus(
   field: SemanticFieldMapping,
@@ -622,7 +639,7 @@ export function SemanticReviewWorkspace({
                           <span className="mt-1 block truncate text-[11px] text-[#778196]">
                             {getFieldMeaning(field, understanding)}
                           </span>
-                          <span className="mt-2 flex flex-wrap gap-1">
+                          <span className="mt-2 flex flex-col items-start gap-1">
                             <span
                               className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.className}`}
                             >
@@ -632,6 +649,11 @@ export function SemanticReviewWorkspace({
                             status.label !== "Required" ? (
                               <span className="inline-flex rounded bg-[#fff0ef] px-1.5 py-0.5 text-[10px] font-semibold text-[#a44848]">
                                 Required
+                              </span>
+                            ) : null}
+                            {isCoreAnalysisField(field, understanding) ? (
+                              <span className="inline-flex rounded bg-[#edf1ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#5269bf]">
+                                Core analysis field
                               </span>
                             ) : null}
                           </span>

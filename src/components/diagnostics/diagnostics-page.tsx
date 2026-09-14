@@ -6,7 +6,6 @@ import { DiagnosticEvidence } from "./diagnostic-evidence";
 import { DiagnosticHeader } from "./diagnostic-header";
 import { DiagnosticReasoning } from "./diagnostic-reasoning";
 import { DiagnosticSummary } from "./diagnostic-summary";
-import { DiagnosticTrace } from "./diagnostic-trace";
 import { InvestigationAssistant } from "./investigation-assistant";
 
 type DiagnosticsPageProps = {
@@ -21,16 +20,9 @@ export function DiagnosticsPage({ diagnosticCase }: DiagnosticsPageProps) {
       <DiagnosticHeader diagnosticCase={diagnosticCase} />
 
       <div className="mt-6 space-y-6">
-        <DiagnosticSummary summary={diagnosticCase.summary} />
-        <DiagnosticEvidence
-          evidence={diagnosticCase.evidence}
-          source={diagnosticCase.source}
-        />
+        <DiagnosticSummary diagnosticCase={diagnosticCase} />
+        <DiagnosticEvidence diagnosticCase={diagnosticCase} />
         <DiagnosticReasoning reasoning={diagnosticCase.reasoning} />
-        <DiagnosticTrace
-          traceSteps={diagnosticCase.traceSteps}
-          source={diagnosticCase.source}
-        />
         <InvestigationAssistant
           key={diagnosticCase.id}
           diagnosticCase={diagnosticCase}

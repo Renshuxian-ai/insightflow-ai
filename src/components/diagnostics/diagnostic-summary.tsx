@@ -1,43 +1,76 @@
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
 type DiagnosticSummaryProps = {
-  summary: DiagnosticCase["summary"];
+  diagnosticCase: DiagnosticCase;
 };
 
-const summaryItems = [
-  { key: "changed", label: "What changed" },
-  { key: "affected", label: "Who was affected" },
-  { key: "started", label: "When it started" },
-] as const;
+export function DiagnosticSummary({
+  diagnosticCase,
+}: DiagnosticSummaryProps) {
+  const nextAction = diagnosticCase.nextValidations[0];
+  const summaryItems = [
+    {
+      label: "What happened",
+      value: diagnosticCase.summary.changed,
+      accent: "border-l-[#3559e8]",
+    },
+    {
+      label: "What we know",
+      value:
+        diagnosticCase.source === "dataset"
+          ? "The metric change is confirmed from deterministic calculation on the uploaded dataset."
+          : "The metric change is supported by the evidence linked to this diagnostic case.",
+      accent: "border-l-[#2e8b62]",
+    },
+    {
+      label: "What we don't know",
+      value:
+        "The available evidence does not confirm why this change occurred.",
+      accent: "border-l-[#c58a33]",
+    },
+    {
+      label: "Recommended next",
+      value: nextAction
+        ? `${nextAction.label} — ${nextAction.description}`
+        : "Review the available evidence before deciding what to validate.",
+      accent: "border-l-[#6c4bd1]",
+    },
+  ];
 
-export function DiagnosticSummary({ summary }: DiagnosticSummaryProps) {
   return (
     <section
-      className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
+      className="rounded-xl border border-[#dce3fb] bg-white p-5 shadow-[0_6px_20px_rgba(37,69,180,0.06)] sm:p-6"
       aria-labelledby="diagnostic-summary-title"
     >
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">At a glance</p>
-        <h2
-          id="diagnostic-summary-title"
-          className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]"
-        >
-          Diagnostic summary
-        </h2>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
+            AI Investigation Summary
+          </p>
+          <h2
+            id="diagnostic-summary-title"
+            className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033]"
+          >
+            Start with the decision-relevant facts
+          </h2>
+        </div>
+        <span className="w-fit rounded-md bg-[#eef8f2] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-[#27714b]">
+          Observation confirmed · Cause requires validation
+        </span>
       </div>
 
-      <dl className="mt-5 grid gap-4 md:grid-cols-3">
-        {summaryItems.map((item, index) => (
+      <dl className="mt-5 grid gap-3 md:grid-cols-2">
+        {summaryItems.map((item) => (
           <div
-            key={item.key}
-            className={
-              index === 0
-                ? "rounded-lg bg-[#fafbfc] p-4"
-                : "rounded-lg border-t border-[#eef0f4] bg-[#fafbfc] p-4 md:border-l md:border-t-0"
-            }
+            key={item.label}
+            className={`rounded-lg border border-[#e8ebf1] border-l-[3px] bg-[#fafbfc] px-4 py-3.5 ${item.accent}`}
           >
-            <dt className="text-xs font-semibold text-[#7e8798]">{item.label}</dt>
-            <dd className="mt-2 text-sm font-medium leading-6 text-[#344056]">{summary[item.key]}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#7e8798]">
+              {item.label}
+            </dt>
+            <dd className="mt-1.5 text-sm font-medium leading-6 text-[#344056]">
+              {item.value}
+            </dd>
           </div>
         ))}
       </dl>

@@ -9,16 +9,16 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
     {
       key: "observation" as const,
       label: "Observation",
-      description: "What the connected signals show",
+      description: "Confirmed signal",
       marker: "O",
       markerClass: "bg-[#edf1ff] text-[#3559e8]",
-      status: "Evidence-backed statement",
+      status: "Confirmed",
       statusClass: "bg-[#f2f4f8] text-[#647087]",
     },
     {
       key: "inference" as const,
       label: "Inference",
-      description: "A possible explanation, not a confirmed cause",
+      description: "Evidence interpretation",
       marker: "I",
       markerClass: "bg-[#fff6e4] text-[#a86713]",
       status: reasoning.inference.status,
@@ -27,7 +27,7 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
     {
       key: "hypothesis" as const,
       label: "Hypothesis",
-      description: "A testable idea for further validation",
+      description: "What to validate next",
       marker: "H",
       markerClass: "bg-[#f1edff] text-[#6c4bd1]",
       status: reasoning.hypothesis.status,
@@ -41,27 +41,30 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
       aria-labelledby="diagnostic-reasoning-title"
     >
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">Reasoning</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
+          Analysis path
+        </p>
         <h2
           id="diagnostic-reasoning-title"
           className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033]"
         >
-          From observation to a testable hypothesis
+          Analysis Path
         </h2>
         <p className="mt-1.5 text-sm text-[#778196]">
-          Each level represents a different degree of certainty and should be reviewed separately.
+          Observation is confirmed; inference and hypothesis still require
+          human review and validation.
         </p>
       </div>
 
-      <ol className="mt-5 space-y-3">
+      <ol className="mt-5 grid gap-0 lg:grid-cols-3 lg:items-stretch">
         {levels.map((level, index) => {
           const item = reasoning[level.key];
 
           return (
-            <li key={level.key} className="relative flex gap-4">
+            <li key={level.key} className="relative flex gap-3 lg:flex-col">
               {index < levels.length - 1 ? (
                 <span
-                  className="absolute left-[17px] top-9 h-[calc(100%-24px)] w-px bg-[#dde2eb]"
+                  className="absolute left-[17px] top-9 h-[calc(100%-12px)] w-px bg-[#dde2eb] lg:left-auto lg:right-[-4px] lg:top-[17px] lg:h-px lg:w-8"
                   aria-hidden="true"
                 />
               ) : null}
@@ -71,8 +74,8 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
               >
                 {level.marker}
               </span>
-              <article className="min-w-0 flex-1 rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4">
-                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+              <article className="mb-3 min-w-0 flex-1 rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 lg:mr-3 lg:mb-0">
+                <div className="flex flex-col justify-between gap-2 xl:flex-row xl:items-start">
                   <div>
                     <h3 className="text-sm font-semibold text-[#263247]">{level.label}</h3>
                     <p className="mt-0.5 text-xs text-[#8a94a6]">{level.description}</p>
@@ -83,9 +86,8 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
                     {level.status}
                   </span>
                 </div>
-                <p className="mt-3 text-sm font-medium leading-6 text-[#344056]">{item.statement}</p>
-                <p className="mt-3 text-[11px] font-medium text-[#98a1b1]">
-                  Linked to {item.evidenceIds.length} supporting {item.evidenceIds.length === 1 ? "signal" : "signals"}
+                <p className="mt-3 text-sm font-medium leading-6 text-[#344056]">
+                  {item.statement}
                 </p>
               </article>
             </li>

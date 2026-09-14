@@ -266,6 +266,20 @@ function getStatusPresentation(
   };
 }
 
+function isCoreAnalysisField(
+  mapping: SemanticFieldMapping,
+  understanding: SemanticFieldUnderstanding,
+): boolean {
+  const semanticType =
+    understanding.effectiveMapping?.semanticType ??
+    mapping.suggestion?.semanticType;
+
+  return (
+    semanticType === SEMANTIC_TYPE_IDS.userId ||
+    semanticType === SEMANTIC_TYPE_IDS.eventTimestamp
+  );
+}
+
 function formatPercent(value: number): string {
   return (value * 100).toFixed(1) + "%";
 }
@@ -465,6 +479,7 @@ export function SemanticFieldReview({
   );
   const suggestion = mapping.suggestion;
   const presentation = getStatusPresentation(mapping, understanding);
+  const isCoreAnalysis = isCoreAnalysisField(mapping, understanding);
   const hasReliableSuggestion = Boolean(
     suggestion && suggestion.semanticType !== SEMANTIC_TYPE_IDS.unknown,
   );
@@ -570,7 +585,7 @@ export function SemanticFieldReview({
               {fieldSummary}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-1.5">
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
             <span
               className={[
                 "w-fit rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -582,6 +597,11 @@ export function SemanticFieldReview({
             {understanding.isBlocking && presentation.label !== "Required" ? (
               <span className="w-fit rounded-full bg-[#fff0ef] px-2.5 py-1 text-xs font-semibold text-[#a44848]">
                 Required
+              </span>
+            ) : null}
+            {isCoreAnalysis ? (
+              <span className="w-fit rounded-full bg-[#edf1ff] px-2.5 py-1 text-xs font-semibold text-[#5269bf]">
+                Core analysis field
               </span>
             ) : null}
           </div>

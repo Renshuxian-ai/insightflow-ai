@@ -86,19 +86,18 @@ export function AgentTraceSummary({
 
   return (
     <section
-      className="mt-6 rounded-xl border border-[#e2e6ef] bg-[#fafbfc] p-5"
       aria-labelledby={`agent-trace-summary-${trace.id}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#6072b8]">
-            Investigation trace
+            Generation trace
           </p>
           <h3
             id={`agent-trace-summary-${trace.id}`}
             className="mt-1 text-sm font-semibold text-[#263247]"
           >
-            Signals checked before generating this draft
+            Steps completed before generating this draft
           </h3>
         </div>
         <span className="rounded-md bg-[#f2f4f8] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.06em] text-[#778196]">

@@ -2,7 +2,7 @@ import type { DiagnosticCase } from "@/lib/diagnostics/types";
 
 import type { AgentMessage } from "./types";
 
-const investigationResultShape = `{
+export const INVESTIGATION_RESULT_SHAPE = `{
   "focus": { "title": "string", "description": "string" },
   "summary": {
     "text": "string",
@@ -42,7 +42,7 @@ const investigationResultShape = `{
   "limitations": ["string"]
 }`;
 
-const investigationOutputContract = [
+export const INVESTIGATION_OUTPUT_CONTRACT = [
   "InvestigationResult output contract (all requirements are mandatory):",
   "- Return every field shown in the required JSON shape. Every string must be non-empty after trimming.",
   "- Do not generate server-owned metadata: investigation id, diagnosticCaseId, source, status, workingHypothesis.id, or workingHypothesis.status.",
@@ -84,8 +84,8 @@ export function buildInitialAgentMessages(
       content: [
         "Review this DiagnosticCase and decide whether to inspect available evidence with tools.",
         "If you return a final result now, it must follow this contract:",
-        investigationOutputContract,
-        `Required JSON shape:\n${investigationResultShape}`,
+        INVESTIGATION_OUTPUT_CONTRACT,
+        `Required JSON shape:\n${INVESTIGATION_RESULT_SHAPE}`,
         `DiagnosticCase JSON:\n${JSON.stringify(diagnosticCase, null, 2)}`,
       ].join("\n\n"),
     },
@@ -100,8 +100,8 @@ export function buildFinalGenerationMessage(): AgentMessage {
       "Treat evidence as facts, possibleExplanations as unconfirmed inference, and workingHypothesis as unvalidated.",
       "Do not omit summary.evidenceReferenceIds, possibleExplanations[*].evidenceReferenceIds, or workingHypothesis.evidenceReferenceIds.",
       "Return no Markdown or explanatory text outside JSON.",
-      investigationOutputContract,
-      `Required JSON shape:\n${investigationResultShape}`,
+      INVESTIGATION_OUTPUT_CONTRACT,
+      `Required JSON shape:\n${INVESTIGATION_RESULT_SHAPE}`,
     ].join("\n\n"),
   };
 }

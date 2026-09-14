@@ -11,6 +11,10 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
   const { context, metric } = diagnosticCase;
   const highSeverity = diagnosticCase.severity === "HIGH";
   const isDatasetCase = diagnosticCase.source === "dataset";
+  const datasetChange =
+    metric.changeType === "percentage-points"
+      ? `${metric.changeValue > 0 ? "↑" : metric.changeValue < 0 ? "↓" : "→"} ${Math.abs(metric.changeValue).toFixed(1)} pp`
+      : formatDirectionalPercentageChange(metric.changeValue);
 
   return (
     <header className="border-b border-[#e6e9ef] pb-6">
@@ -22,8 +26,8 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
         Back to Overview
       </Link>
 
-      <div className="mt-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
-        <div className="max-w-3xl">
+      {isDatasetCase ? (
+        <div className="mt-5 max-w-5xl">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={
@@ -35,9 +39,7 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
               {diagnosticCase.severity}
             </span>
             <span className="inline-flex rounded-md border border-[#dce2ef] bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6f7a8e]">
-              {isDatasetCase
-                ? "Dataset diagnostic · Uploaded dataset"
-                : "Prototype diagnostic · Mock data"}
+              Dataset diagnostic · Uploaded dataset
             </span>
           </div>
 
@@ -48,25 +50,82 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
             {diagnosticCase.title}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f7a8e]">
-            {isDatasetCase
-              ? "Review the deterministic metric evidence before deciding what to analyze next."
-              : "Review the connected behavior and feedback signals before deciding what to validate next."}
+            Review the deterministic metric evidence before deciding what to
+            analyze next.
           </p>
-        </div>
 
-        <dl className="min-w-[260px] rounded-xl border border-[#e1e5ed] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
-          <dt className="text-xs font-medium text-[#7e8798]">{metric.label}</dt>
-          <dd className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-semibold tracking-[-0.03em] text-[#172033]">
-              {metric.currentValue}
-            </span>
-            <span className="text-sm font-semibold text-[#c44242]">
-              {formatDirectionalPercentageChange(metric.changeValue)}
-            </span>
-          </dd>
-          <dd className="mt-1 text-xs text-[#98a1b1]">{metric.comparison}</dd>
-        </dl>
-      </div>
+          <dl className="mt-5 grid overflow-hidden rounded-xl border border-[#e1e5ed] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Current", metric.currentValue],
+              ["Previous", metric.previousValue ?? "Not available"],
+              [
+                "Change",
+                datasetChange,
+              ],
+              ["Comparison", metric.comparison],
+            ].map(([label, value], index) => (
+              <div
+                key={label}
+                className={`px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-[#edf0f4] sm:border-l sm:border-t-0" : ""}`}
+              >
+                <dt className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#98a1b1]">
+                  {label}
+                </dt>
+                <dd
+                  className={`mt-1.5 font-semibold ${label === "Change" ? "text-[#c44242]" : "text-[#263247]"} ${label === "Comparison" ? "text-sm leading-5" : "text-xl tracking-[-0.03em]"}`}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : (
+        <div className="mt-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={
+                  highSeverity
+                    ? "inline-flex rounded-md bg-[#fff0f0] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#c44242]"
+                    : "inline-flex rounded-md bg-[#fff6e4] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#a86713]"
+                }
+              >
+                {diagnosticCase.severity}
+              </span>
+              <span className="inline-flex rounded-md border border-[#dce2ef] bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6f7a8e]">
+                Prototype diagnostic · Mock data
+              </span>
+            </div>
+
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">
+              AI Diagnostics
+            </p>
+            <h1 className="mt-1.5 text-[30px] font-semibold tracking-[-0.04em] text-[#172033] sm:text-[34px]">
+              {diagnosticCase.title}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f7a8e]">
+              Review the connected behavior and feedback signals before
+              deciding what to validate next.
+            </p>
+          </div>
+
+          <dl className="min-w-[260px] rounded-xl border border-[#e1e5ed] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
+            <dt className="text-xs font-medium text-[#7e8798]">{metric.label}</dt>
+            <dd className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tracking-[-0.03em] text-[#172033]">
+                {metric.currentValue}
+              </span>
+              <span className="text-sm font-semibold text-[#c44242]">
+                {formatDirectionalPercentageChange(metric.changeValue)}
+              </span>
+            </dd>
+            <dd className="mt-1 text-xs text-[#98a1b1]">
+              {metric.comparison}
+            </dd>
+          </dl>
+        </div>
+      )}
 
       <dl className="mt-5 flex flex-wrap gap-2" aria-label="Diagnostic context">
         {[

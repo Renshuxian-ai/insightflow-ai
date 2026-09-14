@@ -1,0 +1,4 @@
+feedback_id,user_id,category,sentiment,text
+f001,u0008,onboarding,negative,Cannot finish profile setup and stuck at the last step.
+f002,u0015,onboarding,negative,Too many steps before entering the app.
+f003,u0025,UX,negative,The setup flow is confusing.

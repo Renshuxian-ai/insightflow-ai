@@ -1,6 +1,12 @@
 import { generateInvestigation } from "@/lib/ai/investigation-generator";
+import { generateDatasetInvestigation } from "@/lib/ai/dataset-investigation-generator";
 import { isInvestigationModelId } from "@/lib/ai/model-registry";
 import type { InvestigationGenerationRequest } from "@/lib/ai/types";
+import { DATASET_PRIMARY_ANOMALY_ID } from "@/lib/diagnostics/dataset-diagnostic-case";
+import {
+  DatasetDiagnosticCaseValidationError,
+  parseDatasetDiagnosticCase,
+} from "@/lib/diagnostics/server/dataset-diagnostic-case-schema";
 import { getDiagnosticCase } from "@/lib/diagnostics-mock-data";
 
 type JsonRecord = Record<string, unknown>;
@@ -33,6 +39,52 @@ export async function POST(request: Request) {
     diagnosticCaseId,
     modelId,
   };
+
+  if (
+    diagnosticCaseId === DATASET_PRIMARY_ANOMALY_ID ||
+    requestBody.diagnosticCase !== undefined
+  ) {
+    if (diagnosticCaseId !== DATASET_PRIMARY_ANOMALY_ID) {
+      return Response.json(
+        { error: "A Dataset DiagnosticCase cannot replace a mock case." },
+        { status: 400 },
+      );
+    }
+
+    if (modelId !== "deepseek-v3") {
+      return Response.json(
+        { error: "Dataset investigations require the DeepSeek V3 model." },
+        { status: 400 },
+      );
+    }
+
+    let diagnosticCase;
+
+    try {
+      diagnosticCase = parseDatasetDiagnosticCase(requestBody.diagnosticCase);
+    } catch (error) {
+      if (error instanceof DatasetDiagnosticCaseValidationError) {
+        return Response.json(
+          { error: "Invalid Dataset DiagnosticCase payload." },
+          { status: 400 },
+        );
+      }
+
+      throw error;
+    }
+
+    try {
+      const generation = await generateDatasetInvestigation(diagnosticCase);
+
+      return Response.json(generation);
+    } catch {
+      return Response.json(
+        { error: "Unable to generate a validated investigation draft." },
+        { status: 500 },
+      );
+    }
+  }
+
   const diagnosticCase = getDiagnosticCase(generationRequest.diagnosticCaseId);
 
   if (!diagnosticCase) {

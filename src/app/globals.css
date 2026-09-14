@@ -14,3 +14,12 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.sidebar-scroll-region {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.sidebar-scroll-region::-webkit-scrollbar {
+  display: none;
+}

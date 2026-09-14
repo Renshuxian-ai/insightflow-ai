@@ -55,9 +55,24 @@ const navigationGroups: NavigationGroup[] = [
   {
     label: "ANALYTICS",
     items: [
-      { label: "Trends", icon: "trend", href: "#roadmap" },
-      { label: "Funnels", icon: "funnel", href: "#roadmap" },
-      { label: "Retention", icon: "chart", href: "#roadmap" },
+      {
+        id: "analytics-trends",
+        label: "Trends",
+        icon: "trend",
+        href: "/analytics/trends",
+      },
+      {
+        id: "analytics-funnels",
+        label: "Funnels",
+        icon: "funnel",
+        href: "/analytics/funnels",
+      },
+      {
+        id: "analytics-retention",
+        label: "Retention",
+        icon: "chart",
+        href: "/analytics/retention",
+      },
       { label: "Users", icon: "users", href: "#roadmap" },
     ],
   },
@@ -82,7 +97,13 @@ const navigationGroups: NavigationGroup[] = [
   },
 ];
 
-export type NavigationSection = "overview" | "ai-diagnostics" | "data-sources";
+export type NavigationSection =
+  | "overview"
+  | "ai-diagnostics"
+  | "analytics-trends"
+  | "analytics-funnels"
+  | "analytics-retention"
+  | "data-sources";
 
 function NavigationIcon({ name }: { name: IconName }) {
   if (name === "upload") {
@@ -163,7 +184,7 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
   return (
     <aside
       className={[
-        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e6e9ef] bg-white transition-[width] duration-200 lg:flex",
+        "fixed top-0 left-0 z-30 hidden h-screen shrink-0 flex-col border-r border-[#e6e9ef] bg-white transition-[width] duration-200 lg:flex",
         sidebarCollapsed ? "w-[68px]" : "w-[248px]",
       ].join(" ")}
     >
@@ -205,8 +226,10 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
 
       <nav
         className={[
-          "min-h-0 flex-1 py-4",
-          sidebarCollapsed ? "overflow-visible px-2" : "overflow-y-auto px-3",
+          "sidebar-scroll-region min-h-0 flex-1 py-4",
+          sidebarCollapsed
+            ? "overflow-visible px-2"
+            : "overflow-x-hidden overflow-y-auto px-3",
         ].join(" ")}
         aria-label="Primary navigation"
       >
