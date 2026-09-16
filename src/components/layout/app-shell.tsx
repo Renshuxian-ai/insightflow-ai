@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { useAppShellState } from "./app-shell-state";
 import { Sidebar, type NavigationSection } from "./sidebar";
 
@@ -34,6 +35,9 @@ export function AppShell({ children, activeNavigation = "overview" }: AppShellPr
               IF
             </div>
             <span className="text-sm font-semibold">InsightFlow AI</span>
+          </div>
+          <div className="ml-auto">
+            <LanguageSwitcher compact />
           </div>
         </header>
         {children}

@@ -1,4 +1,13 @@
+import { cookies } from "next/headers";
+
+import { buildDatasetAnalyticsContext } from "@/lib/analytics/dataset-context";
+import { createDatasetContentIdentity } from "@/lib/analytics/dataset-context/dataset-identity";
+import {
+  DATASET_ANALYTICS_SESSION_COOKIE,
+  registerDatasetAnalyticsSession,
+} from "@/lib/analytics/dataset-context/session-store";
 import { DATASET_LIMITS } from "@/lib/datasets/constants";
+import { getRuntimeSessionId } from "@/lib/runtime-session";
 import { isDatasetError, type DatasetError } from "@/lib/datasets/errors";
 import {
   isSemanticRole,
@@ -12,7 +21,8 @@ import type {
 } from "@/lib/datasets/semantic/types";
 import { parseDatasetForAnalytics } from "@/lib/datasets/server/parse-dataset";
 import type { ParsedDataset } from "@/lib/datasets/server/parsers/types";
-import { createDatasetOverview } from "@/lib/overview/dataset-overview";
+import { buildOverviewActivityEvidence } from "@/lib/overview/overview-activity-builder";
+import { buildOverviewRuntime } from "@/lib/overview/build-overview-runtime";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -337,6 +347,16 @@ function datasetErrorResponse(error: DatasetError) {
 }
 
 export async function POST(request: Request) {
+  const runtimeSessionId = getRuntimeSessionId(request);
+
+  if (!runtimeSessionId) {
+    return errorResponse(
+      "INVALID_FILE",
+      "A valid runtime session is required.",
+      400,
+    );
+  }
+
   const contentType = request.headers.get("content-type") ?? "";
 
   if (!contentType.toLowerCase().includes("multipart/form-data")) {
@@ -386,7 +406,37 @@ export async function POST(request: Request) {
 
     assertSchemaMatchesParsedDataset(semanticSchema, parsedDataset);
 
-    return jsonResponse(createDatasetOverview(parsedDataset, semanticSchema));
+    const analyticsContext = buildDatasetAnalyticsContext({
+      datasetId: semanticSchema.physicalSchema.datasetId,
+      dataset: parsedDataset,
+      semanticSchema,
+    });
+    const cookieStore = await cookies();
+    const session = registerDatasetAnalyticsSession(
+      analyticsContext,
+      {
+        requestedSessionId: runtimeSessionId,
+        datasetIdentity: createDatasetContentIdentity(parsedDataset),
+      },
+    );
+
+    cookieStore.set(DATASET_ANALYTICS_SESSION_COOKIE, session.sessionId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 30 * 60,
+    });
+
+    const activityEvidence = buildOverviewActivityEvidence({
+      datasetId: semanticSchema.physicalSchema.datasetId,
+      dataset: parsedDataset,
+      semanticSchema,
+    });
+
+    return jsonResponse(
+      buildOverviewRuntime({ analyticsContext, activityEvidence }),
+    );
   } catch (error) {
     if (error instanceof OverviewApiError) {
       return errorResponse(error.code, error.message, error.status);

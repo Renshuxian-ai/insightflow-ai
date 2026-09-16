@@ -21,6 +21,7 @@ import type {
   SemanticSuggestion,
   SemanticSuggestionBatch,
 } from "../types";
+import { isConditionalCohortDateFieldName } from "../field-classification";
 
 export type SemanticAiFallbackReason =
   | "provider-failure"
@@ -325,9 +326,12 @@ export function mergeSemanticAiSuggestions(
   return {
     physicalSchema: { ...context.physicalSchema },
     suggestions: context.fields.flatMap((field) => {
-      const suggestion =
-        aiByFieldKey.get(field.stableFieldKey) ??
-        deterministicByFieldKey.get(field.stableFieldKey);
+      const deterministicSuggestion = deterministicByFieldKey.get(
+        field.stableFieldKey,
+      );
+      const suggestion = isConditionalCohortDateFieldName(field.fieldName)
+        ? deterministicSuggestion
+        : aiByFieldKey.get(field.stableFieldKey) ?? deterministicSuggestion;
 
       return suggestion ? [suggestion] : [];
     }),

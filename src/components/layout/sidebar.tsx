@@ -4,8 +4,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { UploadIcon } from "@/components/icons/upload-icon";
-import { primaryDiagnosticCase } from "@/lib/diagnostics-mock-data";
-
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { useLanguage } from "@/components/i18n/language-provider";
+import type { TranslationKey } from "@/lib/i18n/translate";
 import { useAppShellState } from "./app-shell-state";
 
 type IconName =
@@ -25,13 +26,13 @@ type IconName =
 
 type NavigationItem = {
   id?: NavigationSection;
-  label: string;
+  labelKey: TranslationKey;
   icon: IconName;
   href: string;
 };
 
 type NavigationGroup = {
-  label?: string;
+  labelKey?: TranslationKey;
   items: NavigationItem[];
 };
 
@@ -40,56 +41,62 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       {
         id: "overview",
-        label: "Overview",
+        labelKey: "nav.overview",
         icon: "layout-dashboard",
         href: "/",
       },
       {
         id: "ai-diagnostics",
-        label: "AI Diagnostics",
+        labelKey: "nav.aiDiagnostics",
         icon: "sparkles",
-        href: `/ai-diagnostics/${primaryDiagnosticCase.id}`,
+        href: "/ai-diagnostics",
       },
     ],
   },
   {
-    label: "ANALYTICS",
+    labelKey: "nav.analytics",
     items: [
       {
         id: "analytics-trends",
-        label: "Trends",
+        labelKey: "nav.trends",
         icon: "trend",
         href: "/analytics/trends",
       },
       {
         id: "analytics-funnels",
-        label: "Funnels",
+        labelKey: "nav.funnels",
         icon: "funnel",
         href: "/analytics/funnels",
       },
       {
         id: "analytics-retention",
-        label: "Retention",
+        labelKey: "nav.retention",
         icon: "chart",
         href: "/analytics/retention",
       },
-      { label: "Users", icon: "users", href: "#roadmap" },
+      { labelKey: "nav.users", icon: "users", href: "#roadmap" },
     ],
   },
   {
-    label: "INSIGHTS",
+    labelKey: "nav.insights",
     items: [
-      { label: "Feedback", icon: "message", href: "#roadmap" },
-      { label: "Reports", icon: "document", href: "#roadmap" },
+      { id: "feedback", labelKey: "nav.feedback", icon: "message", href: "/feedback" },
+      {
+        id: "investigations",
+        labelKey: "nav.investigations",
+        icon: "activity",
+        href: "/investigations",
+      },
+      { id: "reports", labelKey: "nav.reports", icon: "document", href: "/reports" },
     ],
   },
   {
-    label: "DATA",
+    labelKey: "nav.data",
     items: [
-      { label: "Events", icon: "list-tree", href: "#roadmap" },
+      { labelKey: "nav.events", icon: "list-tree", href: "#roadmap" },
       {
         id: "data-sources",
-        label: "Data Sources",
+        labelKey: "nav.dataSources",
         icon: "upload",
         href: "/data-sources",
       },
@@ -103,6 +110,9 @@ export type NavigationSection =
   | "analytics-trends"
   | "analytics-funnels"
   | "analytics-retention"
+  | "feedback"
+  | "investigations"
+  | "reports"
   | "data-sources";
 
 function NavigationIcon({ name }: { name: IconName }) {
@@ -150,10 +160,12 @@ function SidebarTooltip({ label }: { label: string }) {
 
 function SidebarLink({
   item,
+  label,
   active,
   collapsed,
 }: {
   item: NavigationItem;
+  label: string;
   active: boolean;
   collapsed: boolean;
 }) {
@@ -161,8 +173,8 @@ function SidebarLink({
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? item.label : undefined}
-      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? label : undefined}
+      title={collapsed ? label : undefined}
       className={[
         "group relative flex h-9 items-center rounded-lg text-[13px] font-medium transition-colors",
         collapsed ? "mx-auto w-10 justify-center px-0" : "gap-3 px-2.5",
@@ -172,14 +184,18 @@ function SidebarLink({
       ].join(" ")}
     >
       <NavigationIcon name={item.icon} />
-      <span className={collapsed ? "sr-only" : undefined}>{item.label}</span>
-      {collapsed ? <SidebarTooltip label={item.label} /> : null}
+      <span className={collapsed ? "sr-only" : undefined}>{label}</span>
+      {collapsed ? <SidebarTooltip label={label} /> : null}
     </Link>
   );
 }
 
 export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSection }) {
   const { sidebarCollapsed, toggleSidebar } = useAppShellState();
+  const { t } = useLanguage();
+  const sidebarToggleLabel = t(
+    sidebarCollapsed ? "sidebar.expand" : "sidebar.collapse",
+  );
 
   return (
     <aside
@@ -197,15 +213,17 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
         <div className="grid size-9 place-items-center rounded-xl bg-[#3559e8] text-xs font-bold tracking-tight text-white shadow-[0_6px_16px_rgba(53,89,232,0.22)]">IF</div>
         <div className={sidebarCollapsed ? "hidden" : undefined}>
           <p className="text-sm font-semibold tracking-[-0.01em] text-[#172033]">InsightFlow AI</p>
-          <p className="mt-0.5 text-[11px] text-[#7e8798]">Product intelligence</p>
+          <p className="mt-0.5 text-[11px] text-[#7e8798]">
+            {t("brand.tagline")}
+          </p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={toggleSidebar}
-        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={sidebarToggleLabel}
+        title={sidebarToggleLabel}
         className="absolute -right-3 top-16 z-20 grid size-6 place-items-center rounded-full border border-[#dfe3eb] bg-white text-[#7e8798] shadow-sm transition-colors hover:border-[#c8cfda] hover:text-[#3559e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3559e8]/30"
       >
         <svg
@@ -231,31 +249,32 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
             ? "overflow-visible px-2"
             : "overflow-x-hidden overflow-y-auto px-3",
         ].join(" ")}
-        aria-label="Primary navigation"
+        aria-label={t("nav.primary")}
       >
         {navigationGroups.map((group, groupIndex) => (
           <div
-            key={group.label ?? "primary"}
+            key={group.labelKey ?? "primary"}
             className={groupIndex === 0 ? "" : sidebarCollapsed ? "mt-4" : "mt-6"}
           >
-            {group.label ? (
+            {group.labelKey ? (
               sidebarCollapsed ? (
                 <div
                   className="mx-auto mb-2 h-px w-7 bg-[#eef0f4]"
-                  aria-label={group.label}
+                  aria-label={t(group.labelKey)}
                   role="separator"
                 />
               ) : (
                 <p className="px-2 pb-2 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">
-                  {group.label}
+                  {t(group.labelKey)}
                 </p>
               )
             ) : null}
             <div className="space-y-0.5">
               {group.items.map((item) => (
                 <SidebarLink
-                  key={item.label}
+                  key={item.id ?? item.href}
                   item={item}
+                  label={t(item.labelKey)}
                   active={item.id === activeNavigation}
                   collapsed={sidebarCollapsed}
                 />
@@ -266,11 +285,15 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
       </nav>
 
       <div className="border-t border-[#eef0f4] p-3">
-        <SidebarLink
-          item={{ label: "Settings", icon: "settings", href: "#roadmap" }}
-          active={false}
-          collapsed={sidebarCollapsed}
-        />
+        <LanguageSwitcher compact={sidebarCollapsed} />
+        <div className="mt-2">
+          <SidebarLink
+            item={{ labelKey: "nav.settings", icon: "settings", href: "#roadmap" }}
+            label={t("nav.settings")}
+            active={false}
+            collapsed={sidebarCollapsed}
+          />
+        </div>
       </div>
     </aside>
   );

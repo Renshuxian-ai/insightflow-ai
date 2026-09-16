@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DATASET_PRIMARY_ANOMALY_ID } from "../dataset-diagnostic-case";
+import { isDatasetDiagnosticCaseId } from "../dataset-diagnostic-case";
 import type { DiagnosticCase } from "../types";
 
 type JsonRecord = Record<string, unknown>;
@@ -131,6 +131,8 @@ export function parseDatasetDiagnosticCase(value: unknown): DiagnosticCase {
     "status",
     "severity",
     "title",
+    "investigationTarget",
+    "primarySignal",
     "metric",
     "context",
     "summary",
@@ -141,13 +143,62 @@ export function parseDatasetDiagnosticCase(value: unknown): DiagnosticCase {
   ]);
 
   if (
-    diagnosticCase.id !== DATASET_PRIMARY_ANOMALY_ID ||
+    !isDatasetDiagnosticCaseId(diagnosticCase.id) ||
     diagnosticCase.source !== "dataset" ||
     diagnosticCase.status !== "ready" ||
     (diagnosticCase.severity !== "HIGH" &&
       diagnosticCase.severity !== "MEDIUM")
   ) {
     invalid("diagnosticCase");
+  }
+
+  const investigationTarget =
+    diagnosticCase.investigationTarget === undefined
+      ? null
+      : readRecord(
+          diagnosticCase.investigationTarget,
+          "diagnosticCase.investigationTarget",
+          ["id", "title", "relatedSegment"],
+        );
+  const primarySignal =
+    diagnosticCase.primarySignal === undefined
+      ? null
+      : readRecord(diagnosticCase.primarySignal, "diagnosticCase.primarySignal", [
+          "metric",
+          "interval",
+          "segmentDimension",
+          "segment",
+          "currentValue",
+          "baselineValue",
+          "gap",
+          "affectedUsers",
+        ]);
+
+  if (primarySignal) {
+    const currentValue = readNumber(
+      primarySignal.currentValue,
+      "diagnosticCase.primarySignal.currentValue",
+    );
+    const baselineValue = readNumber(
+      primarySignal.baselineValue,
+      "diagnosticCase.primarySignal.baselineValue",
+    );
+    const gap = readNumber(
+      primarySignal.gap,
+      "diagnosticCase.primarySignal.gap",
+    );
+    const affectedUsers = readNumber(
+      primarySignal.affectedUsers,
+      "diagnosticCase.primarySignal.affectedUsers",
+    );
+
+    if (
+      Math.abs(currentValue - baselineValue - gap) >= 0.001 ||
+      !Number.isSafeInteger(affectedUsers) ||
+      affectedUsers < 0
+    ) {
+      invalid("diagnosticCase.primarySignal");
+    }
   }
 
   const metric = readRecord(diagnosticCase.metric, "diagnosticCase.metric", [
@@ -363,11 +414,74 @@ export function parseDatasetDiagnosticCase(value: unknown): DiagnosticCase {
   );
 
   return {
-    id: DATASET_PRIMARY_ANOMALY_ID,
+    id: readString(diagnosticCase.id, "diagnosticCase.id", 160),
     source: "dataset",
     status: "ready",
     severity: diagnosticCase.severity,
     title: readString(diagnosticCase.title, "diagnosticCase.title", 240),
+    ...(investigationTarget
+      ? {
+          investigationTarget: {
+            id: readString(
+              investigationTarget.id,
+              "diagnosticCase.investigationTarget.id",
+              240,
+            ),
+            title: readString(
+              investigationTarget.title,
+              "diagnosticCase.investigationTarget.title",
+              500,
+            ),
+            relatedSegment: readString(
+              investigationTarget.relatedSegment,
+              "diagnosticCase.investigationTarget.relatedSegment",
+              240,
+            ),
+          },
+        }
+      : {}),
+    ...(primarySignal
+      ? {
+          primarySignal: {
+            metric: readString(
+              primarySignal.metric,
+              "diagnosticCase.primarySignal.metric",
+              160,
+            ),
+            interval: readString(
+              primarySignal.interval,
+              "diagnosticCase.primarySignal.interval",
+              32,
+            ),
+            segmentDimension: readString(
+              primarySignal.segmentDimension,
+              "diagnosticCase.primarySignal.segmentDimension",
+              160,
+            ),
+            segment: readString(
+              primarySignal.segment,
+              "diagnosticCase.primarySignal.segment",
+              240,
+            ),
+            currentValue: readNumber(
+              primarySignal.currentValue,
+              "diagnosticCase.primarySignal.currentValue",
+            ),
+            baselineValue: readNumber(
+              primarySignal.baselineValue,
+              "diagnosticCase.primarySignal.baselineValue",
+            ),
+            gap: readNumber(
+              primarySignal.gap,
+              "diagnosticCase.primarySignal.gap",
+            ),
+            affectedUsers: readNumber(
+              primarySignal.affectedUsers,
+              "diagnosticCase.primarySignal.affectedUsers",
+            ),
+          },
+        }
+      : {}),
     metric: {
       id: readString(metric.id, "diagnosticCase.metric.id", 160),
       label: readString(metric.label, "diagnosticCase.metric.label", 240),

@@ -4,21 +4,31 @@ import Link from "next/link";
 
 import { useDatasetWorkspaceSession } from "@/components/datasets/dataset-workspace-session";
 import { createDatasetDiagnosticCase } from "@/lib/diagnostics/dataset-diagnostic-case";
+import type { DiagnosticReturnTarget } from "@/lib/diagnostics/diagnostic-navigation";
 
 import { DiagnosticsPage } from "./diagnostics-page";
 
-export function DatasetDiagnosticsRoute() {
-  const { dataset, datasetOverview, overviewStatus } =
+export function DatasetDiagnosticsRoute({
+  returnTarget,
+}: {
+  returnTarget: DiagnosticReturnTarget;
+}) {
+  const { dataset, overviewRuntime, overviewStatus } =
     useDatasetWorkspaceSession();
-  const diagnosticCase = datasetOverview
+  const diagnosticCase = overviewRuntime
     ? createDatasetDiagnosticCase(
-        datasetOverview,
+        overviewRuntime,
         dataset?.file.originalFileName ?? null,
       )
     : null;
 
   if (overviewStatus === "ready" && diagnosticCase) {
-    return <DiagnosticsPage diagnosticCase={diagnosticCase} />;
+    return (
+      <DiagnosticsPage
+        diagnosticCase={diagnosticCase}
+        returnTarget={returnTarget}
+      />
+    );
   }
 
   return (
@@ -32,10 +42,10 @@ export function DatasetDiagnosticsRoute() {
           to Overview and open the anomaly from the uploaded dataset.
         </p>
         <Link
-          href="/"
+          href={returnTarget.href}
           className="mt-5 inline-flex text-sm font-semibold text-[#3559e8] hover:text-[#2446cb]"
         >
-          Back to Overview
+          Back to {returnTarget.label}
         </Link>
       </section>
     </main>

@@ -1,13 +1,20 @@
 import Link from "next/link";
 
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
+import type { DiagnosticReturnTarget } from "@/lib/diagnostics/diagnostic-navigation";
 import { formatDirectionalPercentageChange } from "@/lib/metric-formatters";
 
 type DiagnosticHeaderProps = {
   diagnosticCase: DiagnosticCase;
+  sourceLabel?: string;
+  returnTarget: DiagnosticReturnTarget;
 };
 
-export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
+export function DiagnosticHeader({
+  diagnosticCase,
+  sourceLabel,
+  returnTarget,
+}: DiagnosticHeaderProps) {
   const { context, metric } = diagnosticCase;
   const highSeverity = diagnosticCase.severity === "HIGH";
   const isDatasetCase = diagnosticCase.source === "dataset";
@@ -19,11 +26,11 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
   return (
     <header className="border-b border-[#e6e9ef] pb-6">
       <Link
-        href="/"
+        href={returnTarget.href}
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#526078] transition-colors hover:text-[#3559e8] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3559e8]"
       >
         <span aria-hidden="true">←</span>
-        Back to Overview
+        Back to {returnTarget.label}
       </Link>
 
       {isDatasetCase ? (
@@ -39,7 +46,9 @@ export function DiagnosticHeader({ diagnosticCase }: DiagnosticHeaderProps) {
               {diagnosticCase.severity}
             </span>
             <span className="inline-flex rounded-md border border-[#dce2ef] bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6f7a8e]">
-              Dataset diagnostic · Uploaded dataset
+              {sourceLabel
+                ? `Source: ${sourceLabel}`
+                : "Dataset diagnostic · Uploaded dataset"}
             </span>
           </div>
 

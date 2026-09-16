@@ -6,16 +6,11 @@ import type {
 } from "@/lib/investigations/types";
 import { formatDirectionalPercentageChange } from "@/lib/metric-formatters";
 
+import { getInvestigationEvidencePresentation } from "./investigation-evidence-presentation";
+
 type InvestigationDraftProps = {
   diagnosticCase: DiagnosticCase;
   result: InvestigationResult;
-};
-
-const sourceTypeLabels: Record<EvidenceReference["sourceType"], string> = {
-  metric: "Metric",
-  context: "Context",
-  "behavior-signal": "Behavior signal",
-  "feedback-signal": "Feedback signal",
 };
 
 const confidenceStyles: Record<ConfidenceLevel, string> = {
@@ -165,6 +160,10 @@ export function InvestigationDraft({
               reference,
               diagnosticCase,
             );
+            const presentation = getInvestigationEvidencePresentation(
+              reference,
+              diagnosticCase,
+            );
 
             return (
               <article
@@ -175,15 +174,17 @@ export function InvestigationDraft({
                   <h4 className="text-sm font-semibold text-[#344056]">
                     {resolved.label}
                   </h4>
-                  <span className="rounded-md bg-[#f2f4f8] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[#778196]">
-                    {sourceTypeLabels[reference.sourceType]}
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] ${presentation.badgeClassName}`}
+                  >
+                    {presentation.badgeLabel}
                   </span>
                 </div>
                 <p className="mt-2 text-xs font-medium leading-5 text-[#5f6b80]">
                   {resolved.value}
                 </p>
                 <p className="mt-2 text-[11px] leading-5 text-[#8a94a6]">
-                  Why used: {reference.relevance}
+                  Why used: {presentation.whyUsed}
                 </p>
               </article>
             );

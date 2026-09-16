@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { useDatasetWorkspaceSession } from "@/components/datasets/dataset-workspace-session";
+import { RUNTIME_SESSION_HEADER } from "@/lib/runtime-session";
+
 import {
   defaultInvestigationModelId,
   getInvestigationModel,
@@ -26,12 +29,24 @@ import type {
 
 import { AITransparency } from "./ai-transparency";
 import { InvestigationDraft } from "./investigation-draft";
+import { InvestigationTrace } from "./investigation-trace";
+import { getInvestigationValidationOptions } from "./investigation-validation-options";
 import { NextValidation } from "./next-validation";
 import { PMReviewPanel } from "./pm-review";
-import { ValidationPlanCard } from "./validation-plan";
+import {
+  ValidationPlanCard,
+  type ValidationPlanUiStatus,
+} from "./validation-plan";
+import { ValidationResult } from "./validation-result";
 
 type InvestigationAssistantProps = {
   diagnosticCase: DiagnosticCase;
+  investigationCaseId?: string;
+  initialInvestigation?: {
+    result: InvestigationResult;
+    trace: AgentTrace;
+    createdAt: string;
+  } | null;
   models: InvestigationModelOption[];
   validationPlanTemplates: ValidationPlanTemplate[];
 };
@@ -77,9 +92,12 @@ function isAgentTrace(value: unknown): value is AgentTrace {
 
 export function InvestigationAssistant({
   diagnosticCase,
+  investigationCaseId,
+  initialInvestigation,
   models,
   validationPlanTemplates,
 }: InvestigationAssistantProps) {
+  const { runtimeSessionId } = useDatasetWorkspaceSession();
   const selectableModels =
     diagnosticCase.source === "dataset"
       ? models.filter((model) => model.id === "deepseek-v3")
@@ -92,12 +110,20 @@ export function InvestigationAssistant({
     );
   const [usedModelId, setUsedModelId] =
     useState<InvestigationModelId | null>(null);
-  const [result, setResult] = useState<InvestigationResult | null>(null);
-  const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(null);
+  const [result, setResult] = useState<InvestigationResult | null>(
+    initialInvestigation?.result ?? null,
+  );
+  const [investigationCreatedAt, setInvestigationCreatedAt] =
+    useState<string | null>(initialInvestigation?.createdAt ?? null);
+  const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(
+    initialInvestigation?.trace ?? null,
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
-  const [isDraftVisible, setIsDraftVisible] = useState(false);
+  const [isDraftVisible, setIsDraftVisible] = useState(
+    initialInvestigation !== undefined && initialInvestigation !== null,
+  );
   const [decision, setDecision] = useState<ReviewDecision | null>(null);
   const [refinedHypothesis, setRefinedHypothesis] = useState("");
   const [note, setNote] = useState("");
@@ -105,26 +131,14 @@ export function InvestigationAssistant({
   const [selectedValidationId, setSelectedValidationId] = useState("");
   const [confirmedReview, setConfirmedReview] = useState<PMReview | null>(null);
   const [validationPlan, setValidationPlan] = useState<ValidationPlan | null>(null);
+  const [validationPlanUiStatus, setValidationPlanUiStatus] =
+    useState<ValidationPlanUiStatus>("draft");
   const [reviewError, setReviewError] = useState<string | null>(null);
   const workflowRegionId = result ? `investigation-workflow-${result.id}` : undefined;
   const usedModel = usedModelId ? getInvestigationModel(usedModelId) : null;
 
   const validationOptions = result
-    ? validationPlanTemplates.flatMap((template) => {
-        const isRecommended = result.recommendedValidations.some(
-          (recommendation) =>
-            recommendation.validationId === template.nextValidationId,
-        );
-        const validation = diagnosticCase.nextValidations.find(
-          (item) => item.id === template.nextValidationId,
-        );
-
-        if (!validation || !isRecommended) {
-          return [];
-        }
-
-        return [validation];
-      })
+    ? getInvestigationValidationOptions(diagnosticCase, result)
     : [];
 
   function resetReviewWorkflow() {
@@ -135,6 +149,7 @@ export function InvestigationAssistant({
     setSelectedValidationId("");
     setConfirmedReview(null);
     setValidationPlan(null);
+    setValidationPlanUiStatus("draft");
     setReviewError(null);
   }
 
@@ -146,10 +161,14 @@ export function InvestigationAssistant({
     try {
       const response = await fetch("/api/investigations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [RUNTIME_SESSION_HEADER]: runtimeSessionId,
+        },
         body: JSON.stringify({
           diagnosticCaseId: diagnosticCase.id,
           modelId: selectedModelId,
+          ...(investigationCaseId ? { investigationCaseId } : {}),
           ...(diagnosticCase.source === "dataset"
             ? { diagnosticCase }
             : {}),
@@ -180,6 +199,7 @@ export function InvestigationAssistant({
         : null;
 
       setResult(validatedResult);
+      setInvestigationCreatedAt(new Date().toISOString());
       setAgentTrace(responseBody.trace);
       setUsedModelId(responseBody.usedModelId);
       setFallbackMessage(
@@ -211,8 +231,11 @@ export function InvestigationAssistant({
     }
   }
 
-  function handleConfirmReview() {
-    if (!result || !decision) {
+  function createPlanFromReview(
+    nextDecision: Exclude<ReviewDecision, "reject-suggestion">,
+    nextValidationId: string,
+  ) {
+    if (!result) {
       return;
     }
 
@@ -220,44 +243,17 @@ export function InvestigationAssistant({
     const normalizedRefinement = refinedHypothesis.trim();
     const normalizedNote = note.trim() || null;
 
-    if (decision === "reject-suggestion") {
-      const normalizedReason = rejectionReason.trim();
-
-      if (!normalizedReason) {
-        setReviewError("Add a rejection reason before recording this decision.");
-        return;
-      }
-
-      const review: PMReview = {
-        id: reviewId,
-        diagnosticCaseId: diagnosticCase.id,
-        investigationResultId: result.id,
-        sourceHypothesisId: result.workingHypothesis.id,
-        decision,
-        refinedHypothesis: null,
-        note: normalizedNote,
-        selectedValidationId: null,
-        rejectionReason: normalizedReason,
-        persistence: "session-only",
-      };
-
-      setConfirmedReview(review);
-      setValidationPlan(null);
-      setReviewError(null);
-      return;
-    }
-
-    if (!selectedValidationId) {
-      setReviewError("Select a validation before creating the plan.");
+    if (!nextValidationId) {
+      setReviewError("No recommended analysis is available for this result.");
       return;
     }
 
     const template = validationPlanTemplates.find(
-      (item) => item.nextValidationId === selectedValidationId,
+      (item) => item.nextValidationId === nextValidationId,
     );
 
     if (!template) {
-      setReviewError("No prototype plan template is available for this validation.");
+      setReviewError("No plan template is available for this recommended analysis.");
       return;
     }
 
@@ -266,39 +262,139 @@ export function InvestigationAssistant({
       diagnosticCaseId: diagnosticCase.id,
       investigationResultId: result.id,
       sourceHypothesisId: result.workingHypothesis.id,
-      decision,
+      decision: nextDecision,
       refinedHypothesis:
         normalizedRefinement &&
         normalizedRefinement !== result.workingHypothesis.statement
           ? normalizedRefinement
           : null,
       note: normalizedNote,
-      selectedValidationId,
+      selectedValidationId: nextValidationId,
       rejectionReason: null,
       persistence: "session-only",
     };
     const plan = buildValidationPlan(review, template, diagnosticCase, result);
 
     if (!plan) {
-      setReviewError("The selected validation does not match this diagnostic case.");
+      setReviewError("The recommended analysis does not match this diagnostic case.");
       return;
     }
 
+    setDecision(nextDecision);
+    setSelectedValidationId(nextValidationId);
     setConfirmedReview(review);
     setValidationPlan(plan);
+    setValidationPlanUiStatus("draft");
+    setReviewError(null);
+  }
+
+  function handleGenerateValidationPlan() {
+    const nextDecision =
+      decision && decision !== "reject-suggestion"
+        ? decision
+        : "use-as-working-hypothesis";
+    const nextValidationId =
+      selectedValidationId || validationOptions[0]?.id || "";
+
+    createPlanFromReview(nextDecision, nextValidationId);
+  }
+
+  function handleConfirmReview() {
+    if (!result || !decision) {
+      return;
+    }
+
+    if (decision !== "reject-suggestion") {
+      createPlanFromReview(decision, selectedValidationId);
+      return;
+    }
+
+    const normalizedReason = rejectionReason.trim();
+
+    if (!normalizedReason) {
+      setReviewError("Add a rejection reason before recording this decision.");
+      return;
+    }
+
+    const review: PMReview = {
+      id: `pm-review-${result.id}`,
+      diagnosticCaseId: diagnosticCase.id,
+      investigationResultId: result.id,
+      sourceHypothesisId: result.workingHypothesis.id,
+      decision,
+      refinedHypothesis: null,
+      note: note.trim() || null,
+      selectedValidationId: null,
+      rejectionReason: normalizedReason,
+      persistence: "session-only",
+    };
+
+    setConfirmedReview(review);
+    setValidationPlan(null);
+    setValidationPlanUiStatus("draft");
     setReviewError(null);
   }
 
   function handleEditReview() {
     setConfirmedReview(null);
     setValidationPlan(null);
+    setValidationPlanUiStatus("draft");
     setReviewError(null);
   }
 
-  function handleMarkAsPlanned() {
-    setValidationPlan((currentPlan) =>
-      currentPlan ? { ...currentPlan, status: "planned" } : currentPlan,
-    );
+  function handleStartValidation() {
+    if (validationPlan) {
+      setValidationPlanUiStatus("running");
+    }
+  }
+
+  async function handleCompleteValidation() {
+    if (
+      !validationPlan ||
+      validationPlanUiStatus !== "running" ||
+      !result ||
+      !investigationCreatedAt
+    ) {
+      return;
+    }
+
+    const validationCompletedAt = new Date().toISOString();
+
+    try {
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [RUNTIME_SESSION_HEADER]: runtimeSessionId,
+        },
+        body: JSON.stringify({
+          ...(investigationCaseId ? { investigationCaseId } : {}),
+          diagnosticCase,
+          investigationResult: result,
+          validationPlan,
+          validationStatus: "completed",
+          investigationCreatedAt,
+          validationCompletedAt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Session report creation failed.");
+      }
+
+      setValidationPlanUiStatus("completed");
+      setGenerationError(null);
+    } catch {
+      setGenerationError(
+        "Validation could not be completed because its session report was not created.",
+      );
+    }
+  }
+
+  function handleRunNewInvestigation() {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("investigationRun", "new");
+    window.location.assign(nextUrl.toString());
   }
 
   return (
@@ -344,12 +440,12 @@ export function InvestigationAssistant({
             className="inline-flex min-h-10 w-full shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] disabled:cursor-not-allowed disabled:bg-[#9cacef] sm:w-fit"
             disabled={isGenerating}
             aria-busy={isGenerating}
-            onClick={handleGenerateInvestigation}
+            onClick={result ? handleRunNewInvestigation : handleGenerateInvestigation}
           >
             {isGenerating
               ? "Generating investigation draft..."
               : result
-                ? "Create new investigation draft"
+                ? "Run new investigation"
                 : "Create investigation draft"}
           </button>
         </div>
@@ -370,6 +466,12 @@ export function InvestigationAssistant({
         </p>
       ) : null}
 
+      <InvestigationTrace
+        diagnosticCase={diagnosticCase}
+        result={result}
+        trace={agentTrace}
+      />
+
       {result && isDraftVisible ? (
         <div id={workflowRegionId}>
           <InvestigationDraft diagnosticCase={diagnosticCase} result={result} />
@@ -388,6 +490,7 @@ export function InvestigationAssistant({
             onNoteChange={setNote}
             onRejectionReasonChange={setRejectionReason}
             onValidationChange={setSelectedValidationId}
+            onGenerateValidationPlan={handleGenerateValidationPlan}
             onConfirm={handleConfirmReview}
             onEdit={handleEditReview}
           />
@@ -395,7 +498,16 @@ export function InvestigationAssistant({
             <ValidationPlanCard
               plan={validationPlan}
               diagnosticCase={diagnosticCase}
-              onMarkAsPlanned={handleMarkAsPlanned}
+              executionStatus={validationPlanUiStatus}
+              onStartValidation={handleStartValidation}
+              onCompleteValidation={handleCompleteValidation}
+            />
+          ) : null}
+          {validationPlan && validationPlanUiStatus === "completed" ? (
+            <ValidationResult
+              diagnosticCase={diagnosticCase}
+              investigationResult={result}
+              plan={validationPlan}
             />
           ) : null}
         </div>

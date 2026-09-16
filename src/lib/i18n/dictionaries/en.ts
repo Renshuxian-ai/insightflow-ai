@@ -1,0 +1,42 @@
+export const en = {
+  "meta.title": "InsightFlow AI | Product intelligence",
+  "meta.description":
+    "A product diagnostics and user insights workspace for product teams.",
+  "brand.tagline": "Product intelligence",
+  "language.selector": "Language",
+  "language.switchToChinese": "Switch to Simplified Chinese",
+  "language.switchToEnglish": "Switch to English",
+  "sidebar.expand": "Expand sidebar",
+  "sidebar.collapse": "Collapse sidebar",
+  "nav.primary": "Primary navigation",
+  "nav.overview": "Overview",
+  "nav.aiDiagnostics": "AI Diagnostics",
+  "nav.analytics": "ANALYTICS",
+  "nav.trends": "Trends",
+  "nav.funnels": "Funnels",
+  "nav.retention": "Retention",
+  "nav.users": "Users",
+  "nav.insights": "INSIGHTS",
+  "nav.feedback": "Feedback",
+  "nav.investigations": "Investigations",
+  "nav.reports": "Reports",
+  "nav.data": "DATA",
+  "nav.events": "Events",
+  "nav.dataSources": "Data Sources",
+  "nav.settings": "Settings",
+  "common.investigate": "Investigate",
+  "common.unavailable": "Unavailable",
+  "common.cancel": "Cancel",
+  "common.confirm": "Confirm",
+  "common.save": "Save",
+  "common.close": "Close",
+  "common.retry": "Try again",
+  "analytics.category": "Analytics",
+  "analytics.demoData": "DEMO DATA",
+  "analytics.uploadedDataset": "UPLOADED DATASET",
+  "analytics.summary": "Analytics summary",
+} as const;
+
+export type TranslationKey = keyof typeof en;
+export type TranslationDictionary = Record<TranslationKey, string>;
+

@@ -15,7 +15,10 @@ import {
   SemanticAiBatchGenerationError,
   SemanticAiFieldValidationError,
 } from "./semantic-ai-generator";
-import { createSemanticInference } from "./semantic-inference";
+import {
+  createSemanticInference,
+  mergeSemanticAiSuggestions,
+} from "./semantic-inference";
 import type {
   SemanticInferenceContext,
   SemanticSchema,
@@ -455,10 +458,73 @@ function assertHumanResolutionIsPreserved() {
   assert(mergedField?.suggestion?.explanation === previousSuggestion.explanation, "Regeneration must not replace the suggestion associated with a human decision.");
 }
 
+function assertConditionalCohortDateUsesControlledMeaning() {
+  const cohortContext: SemanticInferenceContext = {
+    ...fixtureContext,
+    fields: [
+      {
+        ...fixtureContext.fields[0]!,
+        stableFieldKey: "field_cohort_date",
+        fieldName: "cohort_date",
+        detectedPhysicalType: "date",
+        safeStatistics: {
+          kind: "temporal",
+          earliest: "2026-08-01",
+          latest: "2026-08-31",
+        },
+        heuristicCandidates: [
+          {
+            semanticRole: "time",
+            semanticType: "cohort-date",
+            businessMeaning: "Cohort date",
+            semanticConfidence: 0.95,
+            reason:
+              'The normalized field name "cohort_date" matches a controlled semantic rule.',
+          },
+        ],
+      },
+    ],
+  };
+  const controlledSuggestion: SemanticSuggestion = {
+    id: "semantic-suggestion_field_cohort_date_heuristic-v1",
+    stableFieldKey: "field_cohort_date",
+    semanticRole: "time",
+    semanticType: "cohort-date",
+    businessMeaning: "Cohort date",
+    semanticConfidence: 0.95,
+    inferenceSource: "heuristic",
+    explanation: "The exact controlled field name identifies a cohort date.",
+    alternatives: [],
+    ambiguity: null,
+  };
+  const incorrectAiSuggestion: SemanticSuggestion = {
+    ...controlledSuggestion,
+    id: "semantic-suggestion_field_cohort_date_ai-v1",
+    semanticType: "event-timestamp",
+    businessMeaning: "Event timestamp",
+    inferenceSource: "ai",
+  };
+  const merged = mergeSemanticAiSuggestions(
+    cohortContext,
+    {
+      physicalSchema: { ...cohortContext.physicalSchema },
+      suggestions: [controlledSuggestion],
+    },
+    [incorrectAiSuggestion],
+  );
+
+  assert(
+    merged.suggestions[0]?.semanticType === "cohort-date" &&
+      merged.suggestions[0]?.businessMeaning === "Cohort date",
+    "A controlled cohort date name must not be replaced by an event timestamp AI suggestion.",
+  );
+}
+
 export async function runSemanticInferenceFixtures() {
   await assertSuccessfulMerge();
   await assertAllAiProvenance();
   await assertContainedFailureTelemetry();
   await assertFailureFallbacks();
   assertHumanResolutionIsPreserved();
+  assertConditionalCohortDateUsesControlledMeaning();
 }

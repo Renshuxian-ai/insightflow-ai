@@ -6,6 +6,7 @@ import {
   getSemanticSchemaUnderstandings,
   isPolicyForPhysicalSchema,
 } from "@/lib/datasets/semantic/auto-use-policy";
+import { getFieldImportance } from "@/lib/datasets/semantic/field-importance";
 import {
   applySemanticFieldResolution,
   canConfirmSemanticSchema,
@@ -283,6 +284,18 @@ export function SemanticSchemaReview({
 
   const currentSemanticSchema = semanticSchema;
   const currentAutoUsePolicy = autoUsePolicy;
+  const physicalFieldsByKey = new Map(
+    physicalSchema.fields.map((field) => [field.stableFieldKey, field]),
+  );
+  const importanceByFieldKey = new Map(
+    currentSemanticSchema.fields.flatMap((field) => {
+      const physicalField = physicalFieldsByKey.get(field.stableFieldKey);
+
+      return physicalField
+        ? [[field.stableFieldKey, getFieldImportance(field, physicalField)] as const]
+        : [];
+    }),
+  );
 
   const readyFields = currentSemanticSchema.fields.filter(
     (field) =>
@@ -296,10 +309,6 @@ export function SemanticSchemaReview({
     (field) =>
       understandings.get(field.stableFieldKey)?.status === "meaning-unclear",
   );
-  const notUsedFields = currentSemanticSchema.fields.filter(
-    (field) =>
-      understandings.get(field.stableFieldKey)?.status === "not-used",
-  );
   const changedFields = currentSemanticSchema.fields.filter(
     (field) => field.resolution.status === "edited",
   );
@@ -308,6 +317,30 @@ export function SemanticSchemaReview({
   );
   const excludedFields = currentSemanticSchema.fields.filter(
     (field) => field.resolution.status === "excluded",
+  );
+  const confirmedFields = currentSemanticSchema.fields.filter(
+    (field) =>
+      field.resolution.status === "accepted" ||
+      field.resolution.status === "edited",
+  );
+  const aiSuggestionFields = currentSemanticSchema.fields.filter(
+    (field) =>
+      field.resolution.status === "suggested" &&
+      field.suggestion !== null &&
+      field.suggestion.semanticType !== "unknown",
+  );
+  const fieldsNeedingInput = currentSemanticSchema.fields.filter((field) => {
+    const understanding = understandings.get(field.stableFieldKey);
+
+    return (
+      understanding?.status === "needs-review" ||
+      understanding?.status === "meaning-unclear"
+    );
+  });
+  const criticalFieldsRequiringAttention = fieldsNeedingInput.filter(
+    (field) =>
+      importanceByFieldKey.get(field.stableFieldKey)?.importance ===
+      "critical",
   );
   const summaryReadyFields = currentSemanticSchema.fields.filter(
     (field) => {
@@ -579,25 +612,47 @@ export function SemanticSchemaReview({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xl font-semibold tracking-[-0.025em] text-[#202b3c]">
-                {currentSemanticSchema.fields.length.toLocaleString()} fields analyzed
+                AI understood {currentSemanticSchema.fields.length.toLocaleString()} fields
               </p>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                <span className="font-medium text-[#27714b]">
-                  {readyFields.length.toLocaleString()} ready to use
-                </span>
-                <span className="font-medium text-[#8a5b00]">
-                  {needsReviewFields.length.toLocaleString()} need review
-                </span>
-                {meaningUnclearFields.length > 0 ? (
-                  <span className="text-[#7e8798]">
-                    {meaningUnclearFields.length.toLocaleString()} meaning unclear
-                  </span>
-                ) : null}
-                {notUsedFields.length > 0 ? (
-                  <span className="text-[#7e8798]">
-                    {notUsedFields.length.toLocaleString()} not used
-                  </span>
-                ) : null}
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                <div>
+                  <p className="text-lg font-semibold text-[#27714b]">
+                    {confirmedFields.length.toLocaleString()}
+                  </p>
+                  <p className="text-[11px] font-medium text-[#7e8798]">
+                    Confirmed fields
+                  </p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-[#5269bf]">
+                    {aiSuggestionFields.length.toLocaleString()}
+                  </p>
+                  <p className="text-[11px] font-medium text-[#7e8798]">
+                    AI suggestions
+                  </p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-[#8a5b00]">
+                    {fieldsNeedingInput.length.toLocaleString()}
+                  </p>
+                  <p className="text-[11px] font-medium text-[#7e8798]">
+                    Need your input
+                  </p>
+                </div>
+                <div>
+                  <p
+                    className={`text-lg font-semibold ${
+                      criticalFieldsRequiringAttention.length > 0
+                        ? "text-[#a44848]"
+                        : "text-[#667085]"
+                    }`}
+                  >
+                    {criticalFieldsRequiringAttention.length.toLocaleString()}
+                  </p>
+                  <p className="max-w-36 text-[11px] font-medium leading-4 text-[#7e8798]">
+                    Critical fields requiring attention
+                  </p>
+                </div>
               </div>
             </div>
 

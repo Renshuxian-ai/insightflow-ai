@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { SemanticFieldUnderstanding } from "@/lib/datasets/semantic/auto-use-policy";
+import type {
+  FieldImportance,
+  FieldImportanceAssessment,
+} from "@/lib/datasets/semantic/field-importance";
 import {
   getSemanticTypeDefinition,
   SEMANTIC_TYPE_IDS,
@@ -21,6 +25,7 @@ type SemanticFieldReviewProps = {
   physicalField: FieldProfile;
   understanding: SemanticFieldUnderstanding;
   evidence: SemanticFieldReviewEvidence | null;
+  importance: FieldImportanceAssessment | null;
   readOnly: boolean;
   onUseSuggestion: () => void;
   onEdit: (value: SemanticMappingValue) => void;
@@ -37,6 +42,13 @@ type ClarificationCandidate = {
   label: string;
   value: SemanticMappingValue;
   source: "primary" | "alternative" | "ambiguity";
+};
+
+const importanceTextClassNames: Record<FieldImportance, string> = {
+  critical: "text-[#a44848]",
+  important: "text-[#8a5b00]",
+  contextual: "text-[#6072b8]",
+  low: "text-[#8a94a6]",
 };
 
 function capitalizeLabel(value: string): string {
@@ -460,6 +472,7 @@ export function SemanticFieldReview({
   mapping,
   understanding,
   evidence,
+  importance,
   readOnly,
   onUseSuggestion,
   onEdit,
@@ -639,33 +652,71 @@ export function SemanticFieldReview({
           </div>
         ) : null}
 
+        {importance ? (
+          <section
+            aria-labelledby={`analysis-importance-${mapping.stableFieldKey}`}
+            className="mt-5 border-t border-[#edf0f4] pt-4"
+          >
+            <p
+              id={`analysis-importance-${mapping.stableFieldKey}`}
+              className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8a94a6]"
+            >
+              Impact on analysis
+            </p>
+            <p
+              className={`mt-1.5 text-xs font-bold uppercase tracking-[0.06em] ${importanceTextClassNames[importance.importance]}`}
+            >
+              {importance.label}
+            </p>
+            {importance.importance !== "contextual" ? (
+              <p
+                className={`mt-1 max-w-xl text-xs leading-5 ${
+                  importance.importance === "low"
+                    ? "text-[#8a94a6]"
+                    : "text-[#526078]"
+                }`}
+              >
+                {importance.description}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
         <details className="mt-5 border-t border-[#edf0f4] py-3">
           <summary className="cursor-pointer list-none text-xs font-semibold text-[#526078] marker:hidden">
-            Why this suggestion? <span aria-hidden="true">⌄</span>
+            Why AI thinks this <span aria-hidden="true">⌄</span>
           </summary>
           <div className="mt-3 space-y-3 text-xs leading-5 text-[#657084]">
             {suggestion ? (
               <div>
-                <p className="font-semibold text-[#526078]">
-                  Why AI thinks this
-                </p>
-                <p className="mt-1">
+                <p>
                   The field name <code>{mapping.originalName}</code> and the
                   available examples suggest &ldquo;
                   {suggestion.businessMeaning ??
                     getSemanticTypeDefinition(suggestion.semanticType).label}
                   &rdquo;.
                 </p>
+                {importance?.importance === "critical" ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {importance.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             ) : (
               <div>
-                <p className="font-semibold text-[#526078]">
-                  Why AI thinks this
-                </p>
-                <p className="mt-1">
+                <p>
                   The field name and available examples do not point to one
                   reliable business meaning.
                 </p>
+                {importance?.importance === "critical" ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {importance.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             )}
 
@@ -680,16 +731,6 @@ export function SemanticFieldReview({
               </div>
             ) : null}
 
-            {understanding.isCritical || understanding.isBlocking ? (
-              <div>
-                <p className="font-semibold text-[#526078]">
-                  Why it matters
-                </p>
-                <p className="mt-1">
-                  Getting this field right affects {getAnalysisArea(suggestion)}.
-                </p>
-              </div>
-            ) : null}
           </div>
         </details>
 
@@ -823,7 +864,7 @@ export function SemanticFieldReview({
                 onClick={onUseSuggestion}
                 className="rounded-lg bg-[#3559e8] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2949ca]"
               >
-                Use this meaning
+                Confirm AI suggestion
               </button>
             ) : null}
 
@@ -837,7 +878,7 @@ export function SemanticFieldReview({
               }
             >
               {understanding.status === "meaning-unclear"
-                ? "Define meaning"
+                ? "Explain field meaning"
                 : "Change meaning"}
             </button>
 

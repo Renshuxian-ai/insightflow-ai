@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 
-import type { DemoAnalyticsResult } from "@/lib/analytics/demo-analytics";
+import {
+  ANALYTICS_DIAGNOSTIC_HREF,
+  type DemoAnalyticsResult,
+} from "@/lib/analytics/demo-analytics";
+import { buildAnalyticsInvestigationHref } from "@/lib/analytics/investigation-context";
+import { buildRetentionDiagnosis } from "@/lib/analytics/retention-diagnosis-builder";
+import { buildRetentionInvestigationContext } from "@/lib/analytics/retention-investigation-adapter";
+import type { RetentionBreakdownDimensionPresentation } from "@/lib/analytics/retention-presentation";
 
 import {
   AnalyticsMetricGroup,
@@ -50,6 +57,51 @@ export function RetentionPage({ analytics }: { analytics: DemoAnalyticsResult })
   const selectedCohort = selectedCohortDate
     ? cohorts.find((cohort) => cohort.date === selectedCohortDate) ?? null
     : null;
+  const presentationCohorts = cohorts.map((cohort) => ({
+    id: `demo-cohort-${cohort.date}`,
+    date: cohort.date,
+    users: cohort.users,
+    intervals: cohort.intervals,
+  }));
+  const presentationBreakdowns: RetentionBreakdownDimensionPresentation[] = [
+    {
+      id: "platform",
+      label: "Platform",
+      segments: retention.breakdowns.platform.map((segment) => ({
+        id: `demo-platform-${segment.name.toLocaleLowerCase("en-US")}`,
+        label: segment.name,
+        users: segment.users,
+        intervals: [
+          { day: 1, users: Math.round((segment.users * segment.D1) / 100), rate: segment.D1 },
+          { day: 7, users: Math.round((segment.users * segment.D7) / 100), rate: segment.D7 },
+          { day: 30, users: Math.round((segment.users * segment.D30) / 100), rate: segment.D30 },
+        ],
+      })),
+    },
+    {
+      id: "user-type",
+      label: "User type",
+      segments: retention.breakdowns.userType.map((segment) => ({
+        id: `demo-user-type-${segment.name.toLocaleLowerCase("en-US")}`,
+        label: segment.name,
+        users: segment.users,
+        intervals: [
+          { day: 1, users: Math.round((segment.users * segment.D1) / 100), rate: segment.D1 },
+          { day: 7, users: Math.round((segment.users * segment.D7) / 100), rate: segment.D7 },
+          { day: 30, users: Math.round((segment.users * segment.D30) / 100), rate: segment.D30 },
+        ],
+      })),
+    },
+  ];
+  const diagnosis = buildRetentionDiagnosis({
+    breakdowns: presentationBreakdowns,
+    severity:
+      retention.diagnosis.severity === "low" ||
+      retention.diagnosis.severity === "high"
+        ? retention.diagnosis.severity
+        : "medium",
+    suggestedCheckTitles: retention.diagnosis.recommendation,
+  });
   const curveIntervals =
     selectedCohort?.intervals ?? retention.current.intervals;
   const definitionItems = [
@@ -159,19 +211,76 @@ export function RetentionPage({ analytics }: { analytics: DemoAnalyticsResult })
       />
 
       <RetentionCohortMatrix
-        cohorts={cohorts}
+        cohorts={presentationCohorts}
         period={definition.period}
         selectedInterval={selectedInterval}
         selectedCohortDate={selectedCohort?.date ?? null}
         onSelectCohort={setSelectedCohortDate}
       />
 
-      <RetentionBreakdown breakdowns={retention.breakdowns} />
+      <RetentionBreakdown breakdowns={presentationBreakdowns} />
 
-      <RetentionDiagnosis
-        diagnosis={retention.diagnosis}
-        breakdowns={retention.breakdowns}
-      />
+      {diagnosis ? (
+        <RetentionDiagnosis
+          diagnosis={diagnosis}
+          getInvestigationHref={(target) => {
+            const primary = diagnosis.primaryEvidence;
+            const d1 = primary.segment.retention.D1;
+            const d30 = primary.segment.retention.D30;
+            const baselineD1 = primary.benchmark.retention.D1;
+            const baselineD30 = primary.benchmark.retention.D30;
+
+            if (
+              d1 === null ||
+              d30 === null ||
+              baselineD1 === null ||
+              baselineD30 === null
+            ) {
+              return null;
+            }
+
+            const context = {
+              ...buildRetentionInvestigationContext({
+                cohort: selectedCohort ?? retention.current,
+                selectedInterval,
+                segment: {
+                  dimension: primary.dimensionLabel,
+                  selected: {
+                    name: primary.segment.label,
+                    users: primary.segment.users,
+                    D1: d1,
+                    D7: primary.segment.retention.D7,
+                    D30: d30,
+                  },
+                  baseline: {
+                    name: primary.benchmark.label,
+                    users: 0,
+                    D1: baselineD1,
+                    D7: primary.benchmark.retention.D7,
+                    D30: baselineD30,
+                  },
+                },
+                baseline: retention.baselineIntervals,
+                retentionValues:
+                  (selectedCohort ?? retention.current).intervals,
+                definition: retention.definition,
+              }),
+              investigationTarget: {
+                id: target.id,
+                title: target.title,
+                relatedSegment: `${primary.dimensionLabel}: ${primary.segment.label}`,
+                sourceSurface: "retention" as const,
+              },
+            };
+
+            return buildAnalyticsInvestigationHref(
+              ANALYTICS_DIAGNOSTIC_HREF,
+              context,
+              { returnTo: "/analytics/retention" },
+            );
+          }}
+        />
+      ) : null}
     </AnalyticsPageFrame>
   );
 }

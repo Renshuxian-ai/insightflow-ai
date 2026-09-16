@@ -5,6 +5,32 @@ import type {
 } from "../overview/dataset-overview";
 
 export const DATASET_PRIMARY_ANOMALY_ID = "dataset-primary-anomaly";
+export const DATASET_SIGNAL_DIAGNOSTIC_CASE_ID_PREFIX = "dataset-signal";
+
+const DATASET_SIGNAL_FINGERPRINT_PATTERN =
+  /^signal:(activity|retention|funnel|feedback):([a-f0-9]{24})$/;
+const DATASET_SIGNAL_DIAGNOSTIC_CASE_ID_PATTERN =
+  /^dataset-signal:(activity|retention|funnel|feedback):([a-f0-9]{24})$/;
+
+export function buildDatasetSignalDiagnosticCaseId(
+  signalFingerprint: string,
+) {
+  const match = DATASET_SIGNAL_FINGERPRINT_PATTERN.exec(signalFingerprint);
+
+  if (!match) {
+    throw new Error("Invalid Dataset signal fingerprint.");
+  }
+
+  return `${DATASET_SIGNAL_DIAGNOSTIC_CASE_ID_PREFIX}:${match[1]}:${match[2]}`;
+}
+
+export function isDatasetDiagnosticCaseId(value: unknown): value is string {
+  return (
+    value === DATASET_PRIMARY_ANOMALY_ID ||
+    (typeof value === "string" &&
+      DATASET_SIGNAL_DIAGNOSTIC_CASE_ID_PATTERN.test(value))
+  );
+}
 
 const countFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,

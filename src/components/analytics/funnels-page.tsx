@@ -1,9 +1,23 @@
-import { Fragment } from "react";
+"use client";
+
+import { Fragment, useState } from "react";
 import Link from "next/link";
 
-import type { DemoAnalyticsResult } from "@/lib/analytics/demo-analytics";
+import {
+  ANALYTICS_DIAGNOSTIC_HREF,
+  type DemoAnalyticsResult,
+} from "@/lib/analytics/demo-analytics";
+import { buildFunnelInvestigationContext } from "@/lib/analytics/funnel-investigation-adapter";
+import { buildAnalyticsInvestigationHref } from "@/lib/analytics/investigation-context";
 
 import { AnalyticsPageFrame, AnalyticsSectionHeader } from "./analytics-page-frame";
+import { AnimatedFunnelPercentage } from "./animated-funnel-percentage";
+import styles from "./funnel-journey-track.module.css";
+import {
+  getFunnelConversionFillStyle,
+  getJourneyItemDelay,
+  getJourneyMotionStyle,
+} from "./funnel-journey-motion";
 
 function formatPercentage(value: number) {
   return `${value.toFixed(1)}%`;
@@ -14,15 +28,23 @@ function formatDelta(value: number) {
 }
 
 export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
+  const [activeStageIndex, setActiveStageIndex] = useState<number | null>(null);
   const { funnel } = analytics;
   const largestDropOff = funnel.stages.find((stage) => stage.isLargestDropOff);
   const comparisonDelta = largestDropOff
     ? largestDropOff.currentCompletionRate -
       largestDropOff.previousCompletionRate
     : null;
-  const diagnosticHref = analytics.trends.anomalies.find(
-    (anomaly) => anomaly.investigateHref,
-  )?.investigateHref;
+  const investigationContext = largestDropOff
+    ? buildFunnelInvestigationContext({ funnel, stage: largestDropOff })
+    : null;
+  const diagnosticHref = investigationContext
+    ? buildAnalyticsInvestigationHref(
+        ANALYTICS_DIAGNOSTIC_HREF,
+        investigationContext,
+        { returnTo: "/analytics/funnels" },
+      )
+    : null;
 
   return (
     <AnalyticsPageFrame
@@ -184,8 +206,17 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                   <Fragment key={stage.eventName}>
                     {index > 0 ? (
                       <div
-                        className="w-24 min-w-24 max-w-24 flex-none px-2 pt-4 text-center"
+                        className={`${styles.journeyItem} ${styles.connector} ${
+                          activeStageIndex === index ||
+                          activeStageIndex === index - 1
+                            ? styles.connectorActive
+                            : ""
+                        } w-24 min-w-24 max-w-24 flex-none px-2 pt-4 text-center`}
                         style={{
+                          ...getJourneyMotionStyle(
+                            index * 2 - 1,
+                            funnel.stages.length,
+                          ),
                           flex: "0 0 96px",
                           width: "96px",
                           minWidth: "96px",
@@ -201,7 +232,7 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                           }`}
                         >
                           <span
-                            className={`h-px flex-1 ${
+                            className={`${styles.connectorLine} h-px flex-1 ${
                               stage.isLargestDropOff
                                 ? "bg-[#e4a0a0]"
                                 : "bg-[#d8deea]"
@@ -223,7 +254,9 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                         </div>
 
                         {stage.isLargestDropOff ? (
-                          <div className="mt-2 rounded-md bg-[#fff0f0] px-1.5 py-1.5">
+                          <div
+                            className={`${styles.metricReveal} ${styles.primaryDropoffValue} mt-2 rounded-md bg-[#fff0f0] px-1.5 py-1.5`}
+                          >
                             <p className="whitespace-nowrap text-[10px] font-semibold leading-4 text-[#c44242]">
                               {stage.dropOffUsers} users lost
                             </p>
@@ -236,13 +269,26 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                     ) : null}
 
                     <article
-                      className={`box-border flex h-[304px] min-h-[304px] max-h-[304px] w-[180px] min-w-[180px] max-w-[180px] flex-none flex-col rounded-lg border border-solid p-4 shadow-[0_1px_2px_rgba(16,24,40,0.03)] outline-none ring-0 ${
-                        stage.isLargestDropOff ? "bg-[#fff7f7]" : "bg-white"
+                      tabIndex={0}
+                      aria-label={`${stage.label} funnel step`}
+                      onMouseEnter={() => setActiveStageIndex(index)}
+                      onMouseLeave={() => setActiveStageIndex(null)}
+                      onFocus={() => setActiveStageIndex(index)}
+                      onBlur={() => setActiveStageIndex(null)}
+                      className={`${styles.journeyItem} ${styles.transitionCard} ${
+                        stage.isLargestDropOff ? styles.primaryCard : ""
+                      } ${
+                        activeStageIndex === index ? styles.activeCard : ""
+                      } box-border flex h-[304px] min-h-[304px] max-h-[304px] w-[180px] min-w-[180px] max-w-[180px] flex-none flex-col rounded-lg border border-solid p-4 shadow-[0_1px_2px_rgba(16,24,40,0.03)] outline-none ring-0 ${
+                        stage.isLargestDropOff
+                          ? "border-[#efcaca] bg-[#fff7f7]"
+                          : "border-[#e7eaf0] bg-white"
                       }`}
                       style={{
-                        borderColor: stage.isLargestDropOff
-                          ? "#efcaca"
-                          : "#e7eaf0",
+                        ...getJourneyMotionStyle(
+                          index * 2,
+                          funnel.stages.length,
+                        ),
                         flex: "0 0 180px",
                         width: "180px",
                         minWidth: "180px",
@@ -274,7 +320,7 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                           Users
                         </p>
                         <p
-                          className={`mt-1 text-[30px] font-semibold leading-9 tracking-[-0.04em] ${
+                          className={`${styles.metricReveal} mt-1 text-[30px] font-semibold leading-9 tracking-[-0.04em] ${
                             stage.isLargestDropOff
                               ? "text-[#c44242]"
                               : "text-[#172033]"
@@ -291,23 +337,30 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                         <p className="text-[10px] font-medium uppercase leading-4 tracking-[0.06em] text-[#98a1b1]">
                           Conversion
                         </p>
-                        <p
-                          className={`mt-1 text-sm font-semibold leading-5 ${
+                        <AnimatedFunnelPercentage
+                          value={stage.currentCompletionRate}
+                          delayMs={
+                            getJourneyItemDelay(
+                              index * 2,
+                              funnel.stages.length,
+                            ) + 240
+                          }
+                          className={`${styles.metricReveal} mt-1 block text-sm font-semibold leading-5 ${
                             stage.isLargestDropOff
                               ? "text-[#c44242]"
                               : "text-[#344056]"
                           }`}
-                        >
-                          {formatPercentage(stage.currentCompletionRate)}
-                        </p>
+                        />
                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#edf0f5]">
                           <div
-                            className={`h-full rounded-full ${
+                            className={`${styles.conversionFill} h-full rounded-full ${
                               stage.isLargestDropOff
                                 ? "bg-[#c44242]"
                                 : "bg-[#3559e8]"
                             }`}
-                            style={{ width: `${stage.currentCompletionRate}%` }}
+                            style={getFunnelConversionFillStyle(
+                              stage.currentCompletionRate,
+                            )}
                           />
                         </div>
                       </div>
@@ -323,7 +376,11 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                           Change
                         </p>
                         <p
-                          className={`mt-0.5 text-xs font-semibold leading-4 ${
+                          className={`${styles.metricReveal} ${
+                            stage.isLargestDropOff
+                              ? styles.primaryDropoffValue
+                              : ""
+                          } mt-0.5 text-xs font-semibold leading-4 ${
                             stage.isLargestDropOff
                               ? "text-[#c44242]"
                               : "text-[#7e8798]"

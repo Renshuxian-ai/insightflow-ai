@@ -1,13 +1,12 @@
+import { overviewDemoRuntime } from "./overview-demo-runtime";
+import type { AnalyticsInvestigationContext } from "@/lib/analytics/investigation-context";
+import type { TrendRuntimeSignal } from "@/lib/analytics/trend-runtime";
 import type {
-  DatasetOverviewAnomaly,
-  DatasetOverviewMetric,
-  DatasetOverviewResult,
-} from "./dataset-overview";
-import {
-  anomalies,
-  overviewKpis,
-  productTrend,
-} from "../overview-mock-data";
+  OverviewRuntime,
+  OverviewRuntimeAnomaly,
+  OverviewRuntimeFeedbackTopic,
+  OverviewRuntimeMetric,
+} from "./overview-runtime";
 
 export type KpiCardViewModel =
   | {
@@ -18,15 +17,12 @@ export type KpiCardViewModel =
       changeDirection: "positive" | "negative" | "neutral";
       comparison: string;
     }
-  | {
-      status: "unavailable";
-      label: string;
-      reason: string;
-    };
+  | { status: "unavailable"; label: string; reason: string };
 
 export type ProductTrendPoint = {
   label: string;
   value: number;
+  date?: string;
 };
 
 export type ProductTrendViewModel =
@@ -38,10 +34,7 @@ export type ProductTrendViewModel =
       changeDirection: "positive" | "negative" | "neutral";
       data: ProductTrendPoint[];
     }
-  | {
-      status: "unavailable";
-      reason: string;
-    };
+  | { status: "unavailable"; reason: string };
 
 export type AnomalyCardViewModel = {
   id: string;
@@ -54,7 +47,27 @@ export type AnomalyCardViewModel = {
   evidenceSummary: string;
   diagnosticAvailable: boolean;
   showInvestigationAction: boolean;
+  investigationContext: AnalyticsInvestigationContext | null;
 };
+
+export type UserSegmentViewModel = {
+  name: string;
+  description: string;
+  users: string;
+  change: string;
+  changeDirection: "positive" | "negative";
+};
+
+export type FeedbackTopicViewModel = {
+  name: string;
+  mentionCount: number;
+  sentiment: "Negative" | "Mixed" | "Positive" | "Neutral" | "Unknown";
+  change: string;
+};
+
+type OverviewCollectionViewModel<T> =
+  | { status: "available"; items: T[] }
+  | { status: "unavailable"; reason: string };
 
 export type OverviewViewModel = {
   mode: "demo" | "dataset";
@@ -67,6 +80,8 @@ export type OverviewViewModel = {
   anomalies: AnomalyCardViewModel[];
   anomalyTitle: string;
   anomalySummary: string;
+  userSegments: OverviewCollectionViewModel<UserSegmentViewModel>;
+  feedbackTopics: OverviewCollectionViewModel<FeedbackTopicViewModel>;
 };
 
 const countFormatter = new Intl.NumberFormat("en-US", {
@@ -93,7 +108,7 @@ function getChangeDirection(
   return value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
 }
 
-function formatMetricChange(metric: DatasetOverviewMetric): string | null {
+function formatMetricChange(metric: OverviewRuntimeMetric): string | null {
   if (metric.status === "unavailable" || !metric.comparison) {
     return null;
   }
@@ -110,7 +125,7 @@ function formatMetricChange(metric: DatasetOverviewMetric): string | null {
 }
 
 function createKpiViewModel(
-  metric: DatasetOverviewMetric,
+  metric: OverviewRuntimeMetric,
 ): KpiCardViewModel {
   if (metric.status === "unavailable") {
     return {
@@ -134,7 +149,7 @@ function createKpiViewModel(
   };
 }
 
-function formatAnomalyChange(anomaly: DatasetOverviewAnomaly): string {
+function formatAnomalyChange(anomaly: OverviewRuntimeAnomaly): string {
   if (anomaly.unit === "percentage") {
     return formatSigned(anomaly.change.absolute, " pp");
   }
@@ -146,11 +161,47 @@ function formatAnomalyChange(anomaly: DatasetOverviewAnomaly): string {
   return formatSigned(anomaly.change.absolute, "");
 }
 
+function findDatasetAnomalySignal(
+  runtime: OverviewRuntime,
+  anomaly: OverviewRuntimeAnomaly,
+): TrendRuntimeSignal | null {
+  const signals = runtime.trends.signals;
+
+  if (anomaly.metric === "D1 Retention") {
+    return signals.find(
+      (signal) =>
+        signal.metricId === "retention-d1" &&
+        signal.investigationContext?.surface === "retention" &&
+        signal.investigationContext.selectedInterval === "D1",
+    ) ?? null;
+  }
+
+  if (anomaly.metric === "DAU") {
+    return signals.find(
+      (signal) =>
+        signal.metricId === "activity-dau" &&
+        signal.investigationContext?.surface === "activity",
+    ) ?? null;
+  }
+
+  return signals.find(
+    (signal) =>
+      signal.investigationContext?.surface === "funnel" &&
+      Math.abs(signal.current - anomaly.current) < 0.001 &&
+      Math.abs(signal.previous - anomaly.previous) < 0.001 &&
+      Math.abs(signal.change - anomaly.change.absolute) < 0.001,
+  ) ?? null;
+}
+
 function createDatasetAnomalyViewModel(
-  anomaly: DatasetOverviewAnomaly,
+  runtime: OverviewRuntime,
+  anomaly: OverviewRuntimeAnomaly,
 ): AnomalyCardViewModel {
+  const investigationContext =
+    findDatasetAnomalySignal(runtime, anomaly)?.investigationContext ?? null;
+
   return {
-    id: "dataset-primary-anomaly",
+    id: investigationContext?.signalId ?? "dataset-anomaly-unavailable",
     severity: "MEDIUM",
     title: `${anomaly.metric} decline detected`,
     metricLabel: anomaly.metric,
@@ -158,33 +209,32 @@ function createDatasetAnomalyViewModel(
     previous: formatValue(anomaly.previous, anomaly.unit),
     change: formatAnomalyChange(anomaly),
     evidenceSummary: anomaly.evidenceSummary,
-    diagnosticAvailable: true,
+    diagnosticAvailable: investigationContext !== null,
     showInvestigationAction: true,
+    investigationContext,
   };
 }
 
-function createDatasetTrend(
-  datasetOverview: DatasetOverviewResult,
-): ProductTrendViewModel {
+function createRuntimeTrend(runtime: OverviewRuntime): ProductTrendViewModel {
   if (
-    datasetOverview.dailyDau.status === "unavailable" ||
-    datasetOverview.dailyDau.points.length === 0
+    runtime.dailyDau.status === "unavailable" ||
+    runtime.dailyDau.points.length === 0
   ) {
     return {
       status: "unavailable",
       reason:
-        datasetOverview.dailyDau.status === "unavailable"
-          ? datasetOverview.dailyDau.reason
+        runtime.dailyDau.status === "unavailable"
+          ? runtime.dailyDau.reason
           : "Daily DAU does not contain any observed dates.",
     };
   }
 
-  const latestPoint = datasetOverview.dailyDau.points.at(-1)!;
-  const dauMetric = datasetOverview.metrics.dau;
-  const change = formatMetricChange(dauMetric);
+  const latestPoint = runtime.dailyDau.points.at(-1)!;
+  const change = formatMetricChange(runtime.metrics.dau);
   const changeValue =
-    dauMetric.status === "available" && dauMetric.comparison
-      ? dauMetric.comparison.absoluteChange
+    runtime.metrics.dau.status === "available" &&
+    runtime.metrics.dau.comparison
+      ? runtime.metrics.dau.comparison.absoluteChange
       : 0;
 
   return {
@@ -193,18 +243,25 @@ function createDatasetTrend(
     latestValue: countFormatter.format(latestPoint.value),
     change: change ?? "No previous active date",
     changeDirection: change ? getChangeDirection(changeValue) : "neutral",
-    data: datasetOverview.dailyDau.points.map((point) => ({
+    data: runtime.dailyDau.points.map((point) => ({
       label: point.date.slice(5),
       value: point.value,
+      date: point.date,
     })),
   };
 }
 
+function formatFeedbackSentiment(
+  sentiment: OverviewRuntimeFeedbackTopic["sentiment"],
+): FeedbackTopicViewModel["sentiment"] {
+  return `${sentiment.charAt(0).toUpperCase()}${sentiment.slice(1)}` as FeedbackTopicViewModel["sentiment"];
+}
+
 function createDatasetViewModel(
-  datasetOverview: DatasetOverviewResult,
+  runtime: OverviewRuntime,
   datasetName: string | null,
 ): OverviewViewModel {
-  const primaryAnomaly = datasetOverview.primaryAnomaly;
+  const primaryAnomaly = runtime.primaryAnomaly;
 
   return {
     mode: "dataset",
@@ -213,19 +270,35 @@ function createDatasetViewModel(
     datasetName,
     error: null,
     kpis: [
-      createKpiViewModel(datasetOverview.metrics.dau),
-      createKpiViewModel(datasetOverview.metrics.d1Retention),
-      createKpiViewModel(datasetOverview.metrics.coreConversion),
-      createKpiViewModel(datasetOverview.metrics.feedback),
+      createKpiViewModel(runtime.metrics.dau),
+      createKpiViewModel(runtime.metrics.d1Retention),
+      createKpiViewModel(runtime.metrics.coreConversion),
+      createKpiViewModel(runtime.metrics.feedback),
     ],
-    trend: createDatasetTrend(datasetOverview),
+    trend: createRuntimeTrend(runtime),
     anomalies: primaryAnomaly
-      ? [createDatasetAnomalyViewModel(primaryAnomaly)]
+      ? [createDatasetAnomalyViewModel(runtime, primaryAnomaly)]
       : [],
     anomalyTitle: "Dataset anomaly",
     anomalySummary: primaryAnomaly
       ? "1 deterministic signal detected"
       : "No anomaly detected",
+    userSegments: runtime.userSegments,
+    feedbackTopics:
+      runtime.feedbackTopics.status === "available"
+        ? {
+            status: "available",
+            items: runtime.feedbackTopics.items.map((topic) => ({
+              name: topic.name,
+              mentionCount: topic.mentionCount,
+              sentiment: formatFeedbackSentiment(topic.sentiment),
+              change:
+                topic.changePercent === null
+                  ? "No trend"
+                  : formatSigned(topic.changePercent, "%"),
+            })),
+          }
+        : runtime.feedbackTopics,
   };
 }
 
@@ -236,82 +309,94 @@ function createDemoViewModel(): OverviewViewModel {
     sourceLabel: "DEMO DATA",
     datasetName: null,
     error: null,
-    kpis: overviewKpis.map((kpi) => ({
+    kpis: overviewDemoRuntime.kpis.map((kpi) => ({
       status: "available",
-      label: kpi.label,
-      value: kpi.value,
-      change: kpi.change,
-      changeDirection: kpi.changeDirection,
-      comparison: kpi.comparison,
+      ...kpi,
     })),
-    trend: {
-      status: "available",
-      metricLabel: "Daily active users over the last 30 days",
-      latestValue: "12.5k",
-      change: "+8.2% vs. previous period",
-      changeDirection: "positive",
-      data: productTrend,
-    },
-    anomalies: anomalies.map((anomaly) => ({
-      id: anomaly.id,
-      severity: anomaly.severity,
-      title: anomaly.title,
+    trend: { status: "available", ...overviewDemoRuntime.trend },
+    anomalies: overviewDemoRuntime.anomalies.map((anomaly) => ({
+      ...anomaly,
       metricLabel: null,
-      current: anomaly.metric,
       previous: null,
-      change: anomaly.change,
-      evidenceSummary: anomaly.context,
-      diagnosticAvailable: Boolean(anomaly.diagnosticAvailable),
       showInvestigationAction: true,
+      investigationContext: null,
     })),
     anomalyTitle: "AI anomalies",
-    anomalySummary: `${anomalies.length} signals worth investigating`,
+    anomalySummary: `${overviewDemoRuntime.anomalies.length} signals worth investigating`,
+    userSegments: {
+      status: "available",
+      items: overviewDemoRuntime.userSegments,
+    },
+    feedbackTopics: {
+      status: "available",
+      items: overviewDemoRuntime.feedbackTopics,
+    },
+  };
+}
+
+function createPendingDatasetViewModel({
+  status,
+  datasetName,
+  error,
+}: {
+  status: "loading" | "error";
+  datasetName: string | null;
+  error: string | null;
+}): OverviewViewModel {
+  const unavailable = {
+    status: "unavailable" as const,
+    reason: "Dataset analytics are not ready.",
+  };
+
+  return {
+    mode: "dataset",
+    status,
+    sourceLabel: "UPLOADED DATASET",
+    datasetName,
+    error,
+    kpis: [],
+    trend: null,
+    anomalies: [],
+    anomalyTitle: "Dataset anomaly",
+    anomalySummary: "",
+    userSegments: unavailable,
+    feedbackTopics: unavailable,
   };
 }
 
 export function createOverviewViewModel({
-  datasetOverview,
+  overviewRuntime,
   overviewStatus,
   overviewError,
   datasetName,
+  hasDataset,
 }: {
-  datasetOverview: DatasetOverviewResult | null;
+  overviewRuntime: OverviewRuntime | null;
   overviewStatus: "idle" | "loading" | "ready" | "error";
   overviewError: string | null;
   datasetName: string | null;
+  hasDataset: boolean;
 }): OverviewViewModel {
-  if (overviewStatus === "ready" && datasetOverview) {
-    return createDatasetViewModel(datasetOverview, datasetName);
+  if (overviewStatus === "ready" && overviewRuntime) {
+    return createDatasetViewModel(overviewRuntime, datasetName);
   }
 
   if (overviewStatus === "loading") {
-    return {
-      mode: "dataset",
+    return createPendingDatasetViewModel({
       status: "loading",
-      sourceLabel: "UPLOADED DATASET",
       datasetName,
       error: null,
-      kpis: [],
-      trend: null,
-      anomalies: [],
-      anomalyTitle: "Dataset anomaly",
-      anomalySummary: "",
-    };
+    });
   }
 
-  if (overviewStatus === "error") {
-    return {
-      mode: "dataset",
+  if (overviewStatus === "error" || hasDataset) {
+    return createPendingDatasetViewModel({
       status: "error",
-      sourceLabel: "UPLOADED DATASET",
       datasetName,
-      error: overviewError,
-      kpis: [],
-      trend: null,
-      anomalies: [],
-      anomalyTitle: "Dataset anomaly",
-      anomalySummary: "",
-    };
+      error:
+        overviewError ??
+        "Confirm the dataset field understanding before preparing analytics.",
+    });
   }
 
   return createDemoViewModel();

@@ -16,6 +16,7 @@ export const SEMANTIC_TYPE_IDS = {
   sessionId: "session-id",
   eventName: "event-name",
   eventTimestamp: "event-timestamp",
+  cohortDate: "cohort-date",
   metric: "metric",
   dimension: "dimension",
   platform: "platform",
@@ -65,6 +66,12 @@ export const semanticTypeRegistry: Record<
     label: "Event timestamp",
     role: "time",
     description: "Records when an event or observation occurred.",
+  },
+  [SEMANTIC_TYPE_IDS.cohortDate]: {
+    id: SEMANTIC_TYPE_IDS.cohortDate,
+    label: "Cohort date",
+    role: "time",
+    description: "Groups users by a cohort or acquisition start date.",
   },
   [SEMANTIC_TYPE_IDS.metric]: {
     id: SEMANTIC_TYPE_IDS.metric,

@@ -7,7 +7,43 @@ import type {
 type ValidationPlanProps = {
   plan: ValidationPlan;
   diagnosticCase: DiagnosticCase;
-  onMarkAsPlanned: () => void;
+  executionStatus: ValidationPlanUiStatus;
+  onStartValidation: () => void;
+  onCompleteValidation: () => void;
+};
+
+export type ValidationPlanUiStatus = "draft" | "running" | "completed";
+
+const executionStatusConfig: Record<
+  ValidationPlanUiStatus,
+  {
+    label: string;
+    detail: string;
+    description: string;
+    badgeClassName: string;
+  }
+> = {
+  draft: {
+    label: "Draft",
+    detail: "Not run",
+    description:
+      "A reviewable plan for what to check next. It does not execute or complete the validation.",
+    badgeClassName: "bg-[#edf1ff] text-[#6072b8]",
+  },
+  running: {
+    label: "Running",
+    detail: "Validation started",
+    description:
+      "A mock validation run has started. No real analysis or data query is being executed.",
+    badgeClassName: "bg-[#eef4ff] text-[#3559e8]",
+  },
+  completed: {
+    label: "Completed",
+    detail: "Validation completed",
+    description:
+      "The validation run is complete and ready for result review.",
+    badgeClassName: "bg-[#eaf8f0] text-[#27714b]",
+  },
 };
 
 const purposeLabels: Record<ValidationPlanPurpose, string> = {
@@ -34,8 +70,11 @@ const evidenceStatusStyles: Record<
 export function ValidationPlanCard({
   plan,
   diagnosticCase,
-  onMarkAsPlanned,
+  executionStatus,
+  onStartValidation,
+  onCompleteValidation,
 }: ValidationPlanProps) {
+  const status = executionStatusConfig[executionStatus];
   const methodSource = diagnosticCase.nextValidations.find(
     (validation) => validation.id === plan.method.sourceValidationId,
   );
@@ -50,7 +89,8 @@ export function ValidationPlanCard({
 
   return (
     <section
-      className="mt-5 rounded-xl border border-[#d8def0] bg-[#fbfcff] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
+      id="investigation-validation-plan"
+      className="mt-5 scroll-mt-6 rounded-xl border border-[#d8def0] bg-[#fbfcff] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
       aria-labelledby={titleId}
     >
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
@@ -59,8 +99,10 @@ export function ValidationPlanCard({
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
               Validation plan
             </p>
-            <span className="rounded-md bg-[#edf1ff] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.06em] text-[#6072b8]">
-              {plan.status}
+            <span
+              className={`rounded-md px-2 py-1 text-[9px] font-bold uppercase tracking-[0.06em] ${status.badgeClassName}`}
+            >
+              {status.label}
             </span>
           </div>
           <h3
@@ -70,31 +112,39 @@ export function ValidationPlanCard({
             {purposeLabels[plan.purpose]}
           </h3>
           <p className="mt-1.5 max-w-3xl text-sm leading-6 text-[#68758b]">
-            A reviewable plan for what to check next. It does not execute or complete the validation.
+            {status.description}
           </p>
         </div>
 
-        {plan.status === "draft" ? (
+        {executionStatus === "draft" ? (
           <button
             type="button"
-            onClick={onMarkAsPlanned}
+            onClick={onStartValidation}
             className="inline-flex min-h-10 w-fit shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]"
           >
-            Mark as planned
+            Start validation
+          </button>
+        ) : executionStatus === "running" ? (
+          <button
+            type="button"
+            onClick={onCompleteValidation}
+            className="inline-flex min-h-10 w-fit shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]"
+          >
+            Complete validation
           </button>
         ) : (
           <p
-            className="max-w-sm rounded-lg border border-[#dce3fb] bg-white px-4 py-3 text-xs leading-5 text-[#6072b8]"
+            className="max-w-sm rounded-lg border border-[#dcebdd] bg-white px-4 py-3 text-xs font-medium leading-5 text-[#27714b]"
             role="status"
           >
-            Planned does not mean completed. No validation has been run.
+            {status.detail}
           </p>
         )}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.06em] text-[#778196]">
         <span className="rounded-md border border-[#e1e5ed] bg-white px-2 py-1">
-          Not run
+          {status.detail}
         </span>
         <span className="rounded-md border border-[#e1e5ed] bg-white px-2 py-1">
           Session only

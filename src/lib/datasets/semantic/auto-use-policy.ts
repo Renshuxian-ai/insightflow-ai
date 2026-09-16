@@ -19,6 +19,7 @@ import type {
   SemanticType,
   SemanticUseStatus,
 } from "./types";
+import { isConditionalCohortDateFieldName } from "./field-classification";
 
 const SINGLE_VALUE_SEMANTIC_TYPES = new Set<SemanticType>([
   SEMANTIC_TYPE_IDS.userId,
@@ -53,6 +54,7 @@ function isPhysicalTypeCompatible(
     case SEMANTIC_TYPE_IDS.sessionId:
       return isTextLike;
     case SEMANTIC_TYPE_IDS.eventTimestamp:
+    case SEMANTIC_TYPE_IDS.cohortDate:
       return physicalType === "date" || physicalType === "datetime";
     case SEMANTIC_TYPE_IDS.metric:
     case SEMANTIC_TYPE_IDS.revenue:
@@ -99,7 +101,10 @@ function hasReliableProfile(
     return field.safeStatistics.kind === "numeric";
   }
 
-  if (semanticType === SEMANTIC_TYPE_IDS.eventTimestamp) {
+  if (
+    semanticType === SEMANTIC_TYPE_IDS.eventTimestamp ||
+    semanticType === SEMANTIC_TYPE_IDS.cohortDate
+  ) {
     return field.safeStatistics.kind === "temporal";
   }
 
@@ -134,17 +139,34 @@ function getRequiredSemanticTypes(
     suggestions.some(
       (suggestion) =>
         suggestion.semanticType === SEMANTIC_TYPE_IDS.eventName,
-    ) || /\b(event|events|behavior|behaviour|analytics)\b/.test(normalizedContext);
+    ) ||
+    (suggestions.some(
+      (suggestion) => suggestion.semanticType === SEMANTIC_TYPE_IDS.userId,
+    ) &&
+      suggestions.some(
+        (suggestion) =>
+          suggestion.semanticType === SEMANTIC_TYPE_IDS.eventTimestamp,
+      )) ||
+    /\b(event|events|behavior|behaviour|analytics)\b/.test(normalizedContext);
 
   return describesEventData
-    ? [SEMANTIC_TYPE_IDS.eventName, SEMANTIC_TYPE_IDS.eventTimestamp]
+    ? [
+        SEMANTIC_TYPE_IDS.userId,
+        SEMANTIC_TYPE_IDS.eventName,
+        SEMANTIC_TYPE_IDS.eventTimestamp,
+      ]
     : [];
 }
 
 function isCriticalField(
   suggestion: SemanticSuggestion,
   requiredSemanticTypes: readonly SemanticType[],
+  fieldName: string,
 ): boolean {
+  if (isConditionalCohortDateFieldName(fieldName)) {
+    return false;
+  }
+
   return (
     requiredSemanticTypes.includes(suggestion.semanticType) ||
     (requiredSemanticTypes.includes(SEMANTIC_TYPE_IDS.eventTimestamp) &&
@@ -232,8 +254,13 @@ export function createSemanticAutoUsePolicy(
       stableFieldKey: field.stableFieldKey,
       baseStatus,
       isCritical: knownSuggestion
-        ? isCriticalField(suggestion, requiredSemanticTypes)
-        : primaryHeuristic?.semanticRole === "time" &&
+        ? isCriticalField(
+            suggestion,
+            requiredSemanticTypes,
+            field.fieldName,
+          )
+        : !isConditionalCohortDateFieldName(field.fieldName) &&
+          primaryHeuristic?.semanticRole === "time" &&
           requiredSemanticTypes.includes(SEMANTIC_TYPE_IDS.eventTimestamp),
       signals: {
         suggestionAvailable: knownSuggestion,
@@ -300,6 +327,13 @@ export function getSemanticConflicts(
     const candidate = getCandidateMapping(field);
 
     if (!candidate || !SINGLE_VALUE_SEMANTIC_TYPES.has(candidate.semanticType)) {
+      continue;
+    }
+
+    if (
+      candidate.semanticType === SEMANTIC_TYPE_IDS.eventTimestamp &&
+      isConditionalCohortDateFieldName(field.originalName)
+    ) {
       continue;
     }
 

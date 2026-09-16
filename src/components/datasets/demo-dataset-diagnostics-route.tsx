@@ -7,6 +7,7 @@ import { DiagnosticsPage } from "@/components/diagnostics/diagnostics-page";
 import { loadDemoDiagnosticDataset } from "@/lib/diagnostics/demo-dataset/demo-dataset-adapter";
 import { createDemoDatasetDiagnosticCase } from "@/lib/diagnostics/demo-dataset/evidence-generator";
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
+import type { DiagnosticReturnTarget } from "@/lib/diagnostics/diagnostic-navigation";
 
 type LoadState =
   | { status: "loading" }
@@ -28,7 +29,11 @@ function loadDiagnosticCase() {
   return cachedDiagnosticCase;
 }
 
-export function DemoDatasetDiagnosticsRoute() {
+export function DemoDatasetDiagnosticsRoute({
+  returnTarget,
+}: {
+  returnTarget: DiagnosticReturnTarget;
+}) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
@@ -58,7 +63,12 @@ export function DemoDatasetDiagnosticsRoute() {
   }, []);
 
   if (state.status === "ready") {
-    return <DiagnosticsPage diagnosticCase={state.diagnosticCase} />;
+    return (
+      <DiagnosticsPage
+        diagnosticCase={state.diagnosticCase}
+        returnTarget={returnTarget}
+      />
+    );
   }
 
   return (
@@ -82,10 +92,10 @@ export function DemoDatasetDiagnosticsRoute() {
               {state.message}
             </p>
             <Link
-              href="/"
+              href={returnTarget.href}
               className="mt-5 inline-flex text-sm font-semibold text-[#3559e8] hover:text-[#2446cb]"
             >
-              Back to Overview
+              Back to {returnTarget.label}
             </Link>
           </>
         )}

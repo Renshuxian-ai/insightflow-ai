@@ -1,10 +1,14 @@
-import type { UserSegment } from "@/lib/overview-mock-data";
+import type { UserSegmentViewModel } from "@/lib/overview/overview-view-model";
 
 type UserSegmentCardProps = {
-  segments: UserSegment[];
+  segments: UserSegmentViewModel[];
+  unavailableReason?: string;
 };
 
-export function UserSegmentCard({ segments }: UserSegmentCardProps) {
+export function UserSegmentCard({
+  segments,
+  unavailableReason,
+}: UserSegmentCardProps) {
   return (
     <section className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]" aria-labelledby="user-segments-title">
       <div className="flex items-center justify-between">
@@ -14,8 +18,16 @@ export function UserSegmentCard({ segments }: UserSegmentCardProps) {
         </div>
         <span className="text-xs font-semibold text-[#3559e8]">View users →</span>
       </div>
-      <div className="mt-4 divide-y divide-[#eef0f4]">
-        {segments.map((segment) => (
+      {unavailableReason ? (
+        <div className="mt-4 rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-4 py-6 text-center">
+          <p className="text-sm font-semibold text-[#526078]">Unavailable</p>
+          <p className="mt-1 text-xs leading-5 text-[#8a94a6]">
+            {unavailableReason}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 divide-y divide-[#eef0f4]">
+          {segments.map((segment) => (
           <article key={segment.name} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
             <div className="min-w-0">
               <h3 className="truncate text-[13px] font-semibold text-[#344056]">{segment.name}</h3>
@@ -25,8 +37,9 @@ export function UserSegmentCard({ segments }: UserSegmentCardProps) {
               {segment.change}
             </span>
           </article>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

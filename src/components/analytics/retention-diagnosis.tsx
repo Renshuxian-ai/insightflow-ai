@@ -1,22 +1,21 @@
-import type { DemoAnalyticsResult } from "@/lib/analytics/demo-analytics";
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+import type {
+  RetentionDiagnosisPresentation,
+  RetentionSuggestedCheckPresentation,
+} from "@/lib/analytics/retention-presentation";
 
 import { AnalyticsSectionHeader } from "./analytics-page-frame";
 
-type RetentionDiagnosisData = DemoAnalyticsResult["retention"]["diagnosis"];
-type RetentionBreakdowns =
-  DemoAnalyticsResult["retention"]["breakdowns"];
-type RetentionBreakdownSegment = RetentionBreakdowns["platform"][number];
-
-type DimensionSignal = {
-  dimension: string;
-  worstSegment: RetentionBreakdownSegment;
-  bestSegment: RetentionBreakdownSegment;
-  d7Gap: number;
-  impactScore: number;
-};
-
 function formatUsers(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatRate(value: number | null) {
+  return value === null ? "—" : `${value.toFixed(1)}%`;
 }
 
 function EvidenceBadge({ label }: { label: "Evidence" | "Inference" }) {
@@ -35,75 +34,31 @@ function EvidenceBadge({ label }: { label: "Evidence" | "Inference" }) {
   );
 }
 
-function analyzeBreakdownDimensions(breakdowns: RetentionBreakdowns) {
-  const breakdownGroups = [
-    { label: "Platform", segments: breakdowns.platform },
-    { label: "User type", segments: breakdowns.userType },
-  ];
-  const signals: DimensionSignal[] = breakdownGroups.flatMap((group) => {
-    const comparableSegments = group.segments.filter(
-      (segment) =>
-        Number.isFinite(segment.D1) &&
-        Number.isFinite(segment.D7) &&
-        Number.isFinite(segment.D30) &&
-        Number.isFinite(segment.users),
-    );
-
-    if (comparableSegments.length < 2) {
-      return [];
-    }
-
-    const bestSegment = comparableSegments.reduce((best, segment) =>
-      segment.D7 > best.D7 ? segment : best,
-    );
-    const worstSegment = comparableSegments.reduce((worst, segment) =>
-      segment.D7 < worst.D7 ? segment : worst,
-    );
-    const d7Gap = worstSegment.D7 - bestSegment.D7;
-
-    return d7Gap < 0
-      ? [
-          {
-            dimension: group.label,
-            worstSegment,
-            bestSegment,
-            d7Gap,
-            impactScore: worstSegment.users * Math.abs(d7Gap),
-          },
-        ]
-      : [];
-  });
-
-  return signals.sort((left, right) => right.impactScore - left.impactScore);
-}
-
 export function RetentionDiagnosis({
   diagnosis,
-  breakdowns,
+  getInvestigationHref,
 }: {
-  diagnosis: RetentionDiagnosisData;
-  breakdowns: RetentionBreakdowns;
+  diagnosis: RetentionDiagnosisPresentation;
+  getInvestigationHref?: (
+    target: RetentionSuggestedCheckPresentation,
+  ) => string | null;
 }) {
-  const dimensionSignals = analyzeBreakdownDimensions(breakdowns);
-  const primarySignal = dimensionSignals[0] ?? null;
-  const allSegmentNames = [
-    ...breakdowns.platform.map((segment) => segment.name),
-    ...breakdowns.userType.map((segment) => segment.name),
+  const [selectedTargetId, setSelectedTargetId] = useState(
+    diagnosis.suggestedChecks[0]?.id ?? "",
+  );
+  const selectedTarget =
+    diagnosis.suggestedChecks.find(
+      (direction) => direction.id === selectedTargetId,
+    ) ?? diagnosis.suggestedChecks[0] ?? null;
+  const investigationHref =
+    selectedTarget && getInvestigationHref
+      ? getInvestigationHref(selectedTarget)
+      : null;
+  const dimensionEvidence = [
+    diagnosis.primaryEvidence,
+    ...diagnosis.secondaryEvidence,
   ];
-  const investigationDirections = primarySignal
-    ? diagnosis.recommendation.map((direction) => {
-        const fixedSegmentName = allSegmentNames.find((name) =>
-          direction.includes(name),
-        );
-
-        return fixedSegmentName
-          ? direction.replace(fixedSegmentName, primarySignal.worstSegment.name)
-          : direction;
-      })
-    : [];
-  const interpretation = primarySignal
-    ? `${primarySignal.worstSegment.name} retention is lower than baseline and requires investigation.`
-    : "Insufficient segment evidence";
+  const primary = diagnosis.primaryEvidence;
 
   return (
     <section className="mt-6" aria-label="Retention diagnosis">
@@ -121,14 +76,12 @@ export function RetentionDiagnosis({
               </p>
             </div>
             <p className="mt-1.5 text-xs font-medium leading-5 text-[#5f6b7e]">
-              {interpretation}
+              {diagnosis.interpretation}
             </p>
           </div>
-          {primarySignal ? (
-            <span className="w-fit rounded-md bg-[#fff6e4] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#8a5b00]">
-              {diagnosis.severity} priority
-            </span>
-          ) : null}
+          <span className="w-fit rounded-md bg-[#fff6e4] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#8a5b00]">
+            {diagnosis.severity} priority
+          </span>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)]">
@@ -140,37 +93,31 @@ export function RetentionDiagnosis({
               <EvidenceBadge label="Evidence" />
             </div>
             <div className="mt-3 space-y-2">
-              {primarySignal ? (
-                <>
-                  <div
-                    className="rounded-lg bg-white px-3 py-2.5"
-                  >
-                    <p className="text-[11px] text-[#7e8798]">
-                      D7 Retention · {primarySignal.worstSegment.name}
-                    </p>
-                    <div className="mt-1 flex items-baseline justify-between gap-3">
-                      <p className="text-sm font-semibold text-[#344056]">
-                        {primarySignal.worstSegment.D7}%
-                      </p>
-                      <p className="text-[11px] font-semibold text-[#bd3f3f]">
-                        {primarySignal.d7Gap.toFixed(0)} pp vs. {primarySignal.bestSegment.name} {primarySignal.bestSegment.D7}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-white px-3 py-2.5">
-                    <p className="text-[11px] text-[#7e8798]">
-                      Affected users · {primarySignal.worstSegment.name}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#344056]">
-                      {formatUsers(primarySignal.worstSegment.users)}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <p className="rounded-lg bg-white px-3 py-2.5 text-[11px] text-[#7e8798]">
-                  Insufficient segment evidence
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] text-[#7e8798]">
+                  D7 Retention · {primary.segment.label}
                 </p>
-              )}
+                <div className="mt-1 flex items-baseline justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#344056]">
+                    {formatRate(primary.segment.retention.D7)}
+                  </p>
+                  <p className="text-[11px] font-semibold text-[#bd3f3f]">
+                    {primary.d7Gap.toFixed(1)} pp vs. {primary.benchmark.label}{" "}
+                    {formatRate(primary.benchmark.retention.D7)}
+                  </p>
+                </div>
+                <p className="mt-2 text-[10px] leading-4 text-[#8a94a6]">
+                  {diagnosis.observation}
+                </p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] text-[#7e8798]">
+                  Affected users · {primary.segment.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[#344056]">
+                  {formatUsers(primary.segment.users)}
+                </p>
+              </div>
             </div>
           </article>
 
@@ -182,63 +129,59 @@ export function RetentionDiagnosis({
               <EvidenceBadge label="Evidence" />
             </div>
             <div className="mt-3 space-y-2">
-              {primarySignal ? (
-                dimensionSignals.map((signal, index) => (
-                  <div
-                    key={signal.dimension}
-                    className={`rounded-lg px-3 py-2.5 ${
-                      index === 0 ? "bg-[#fff4f4]" : "bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] text-[#8a94a6]">
-                          {index === 0 ? "Primary issue" : "Secondary signal"} · {signal.dimension}
-                        </p>
-                        <p className="mt-0.5 text-[13px] font-semibold text-[#344056]">
-                          {signal.worstSegment.name}
-                        </p>
-                      </div>
-                      <p className="text-right text-[11px] font-semibold text-[#bd3f3f]">
-                        {signal.d7Gap.toFixed(0)} pp D7 gap
+              {dimensionEvidence.map((evidence, index) => (
+                <div
+                  key={evidence.dimensionId}
+                  className={`rounded-lg px-3 py-2.5 ${
+                    index === 0 ? "bg-[#fff4f4]" : "bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] text-[#8a94a6]">
+                        {index === 0 ? "Primary issue" : "Secondary signal"} ·{" "}
+                        {evidence.dimensionLabel}
+                      </p>
+                      <p className="mt-0.5 text-[13px] font-semibold text-[#344056]">
+                        {evidence.segment.label}
                       </p>
                     </div>
-                    <p className="mt-2 text-[10px] text-[#8a94a6]">
-                      Compared with {signal.bestSegment.name} at {signal.bestSegment.D7}%
+                    <p className="text-right text-[11px] font-semibold text-[#bd3f3f]">
+                      {evidence.d7Gap.toFixed(1)} pp D7 gap
                     </p>
-                    <div className="mt-3 grid grid-cols-4 gap-2 text-[10px] text-[#7e8798]">
-                      <p>
-                        <span className="block font-semibold text-[#4e5a70]">
-                          {formatUsers(signal.worstSegment.users)}
-                        </span>
-                        Users
-                      </p>
-                      <p>
-                        <span className="block font-semibold text-[#4e5a70]">
-                          {signal.worstSegment.D1}%
-                        </span>
-                        D1
-                      </p>
-                      <p>
-                        <span className="block font-semibold text-[#bd3f3f]">
-                          {signal.worstSegment.D7}%
-                        </span>
-                        D7
-                      </p>
-                      <p>
-                        <span className="block font-semibold text-[#4e5a70]">
-                          {signal.worstSegment.D30}%
-                        </span>
-                        D30
-                      </p>
-                    </div>
                   </div>
-                ))
-              ) : (
-                <p className="rounded-lg bg-white px-3 py-2.5 text-[11px] text-[#7e8798]">
-                  Insufficient segment evidence
-                </p>
-              )}
+                  <p className="mt-2 text-[10px] text-[#8a94a6]">
+                    Compared with {evidence.benchmark.label} at{" "}
+                    {formatRate(evidence.benchmark.retention.D7)}
+                  </p>
+                  <div className="mt-3 grid grid-cols-4 gap-2 text-[10px] text-[#7e8798]">
+                    <p>
+                      <span className="block font-semibold text-[#4e5a70]">
+                        {formatUsers(evidence.segment.users)}
+                      </span>
+                      Users
+                    </p>
+                    <p>
+                      <span className="block font-semibold text-[#4e5a70]">
+                        {formatRate(evidence.segment.retention.D1)}
+                      </span>
+                      D1
+                    </p>
+                    <p>
+                      <span className="block font-semibold text-[#bd3f3f]">
+                        {formatRate(evidence.segment.retention.D7)}
+                      </span>
+                      D7
+                    </p>
+                    <p>
+                      <span className="block font-semibold text-[#4e5a70]">
+                        {formatRate(evidence.segment.retention.D30)}
+                      </span>
+                      D30
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </article>
 
@@ -249,33 +192,58 @@ export function RetentionDiagnosis({
               </h3>
               <EvidenceBadge label="Inference" />
             </div>
-            <ul className="mt-3 space-y-2">
-              {primarySignal ? (
-                investigationDirections.map((direction) => (
-                  <li
-                    key={direction}
-                    className="rounded-lg border border-[#eef0f4] bg-white px-3 py-2.5"
-                  >
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.07em] text-[#8a94a6]">
-                      Suggested check
-                    </p>
-                    <p className="mt-1.5 text-[11px] leading-4 text-[#5f6b7e]">
-                      {direction}
-                    </p>
-                    <span className="mt-2 inline-flex rounded-md bg-[#f1f3f6] px-1.5 py-0.5 text-[9px] font-semibold text-[#8a94a6]">
-                      Not analyzed yet
-                    </span>
+            <ul className="mt-3 space-y-2" aria-label="Investigation target">
+              {diagnosis.suggestedChecks.map((direction) => {
+                const isSelected = direction.id === selectedTarget?.id;
+
+                return (
+                  <li key={direction.id}>
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => setSelectedTargetId(direction.id)}
+                      className={`w-full cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-[border-color,background-color,box-shadow,transform] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] ${
+                        isSelected
+                          ? "border-[#b8c6f8] bg-[#f5f7ff] shadow-[0_0_0_1px_rgba(53,89,232,0.06)]"
+                          : "border-[#eef0f4] bg-white hover:border-[#d7def5] hover:bg-[#fafbff] active:bg-[#f5f7ff]"
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.07em] text-[#8a94a6]">
+                          Suggested check
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className={`size-3 rounded-full border ${
+                            isSelected
+                              ? "border-[3px] border-[#3559e8] bg-white"
+                              : "border-[#cfd5df] bg-white"
+                          }`}
+                        />
+                      </span>
+                      <span className={`mt-1.5 block text-[11px] leading-4 ${isSelected ? "font-semibold text-[#344056]" : "text-[#5f6b7e]"}`}>
+                        {direction.title}
+                      </span>
+                      <span className="mt-2 inline-flex rounded-md bg-[#f1f3f6] px-1.5 py-0.5 text-[9px] font-semibold text-[#8a94a6]">
+                        Not analyzed yet
+                      </span>
+                    </button>
                   </li>
-                ))
-              ) : (
-                <li className="rounded-lg border border-[#eef0f4] bg-white px-3 py-2.5 text-[11px] text-[#7e8798]">
-                  Insufficient segment evidence
-                </li>
-              )}
+                );
+              })}
             </ul>
             <p className="mt-3 text-[10px] leading-4 text-[#98a1b1]">
               Suggested checks are directions to validate, not conclusions.
             </p>
+            {investigationHref ? (
+              <Link
+                href={investigationHref}
+                aria-label={`Investigate: ${selectedTarget?.title ?? "selected retention target"}`}
+                className="mt-4 inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border border-[#cfd9fb] bg-white px-3 text-[11px] font-semibold text-[#3559e8] transition-colors hover:border-[#aebefd] hover:bg-[#f5f7ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]"
+              >
+                Investigate <span aria-hidden="true" className="ml-1">→</span>
+              </Link>
+            ) : null}
           </article>
         </div>
       </div>

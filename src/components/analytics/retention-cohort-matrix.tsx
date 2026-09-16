@@ -2,14 +2,12 @@
 
 import { useEffect, useRef } from "react";
 
-import type { DemoAnalyticsResult } from "@/lib/analytics/demo-analytics";
+import type { RetentionCohortPresentation } from "@/lib/analytics/retention-presentation";
 
 import { AnalyticsSectionHeader } from "./analytics-page-frame";
 
-type RetentionCohort = DemoAnalyticsResult["retention"]["cohorts"][number];
-
 type RetentionCohortMatrixProps = {
-  cohorts: RetentionCohort[];
+  cohorts: RetentionCohortPresentation[];
   period: string;
   selectedInterval?: string | null;
   selectedCohortDate?: string | null;
@@ -150,7 +148,7 @@ export function RetentionCohortMatrix({
             <div className="divide-y divide-[#f0f2f5]" role="rowgroup">
               {cohorts.map((cohort) => (
                 <div
-                  key={cohort.date}
+                  key={cohort.id}
                   className="group grid cursor-pointer gap-2 rounded-xl px-1 py-2 outline-none transition-colors hover:bg-[#f8faff] focus-visible:bg-[#f8faff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#9fb0f5] data-[selected=true]:bg-[#eef2ff] data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-[#cfd9fb]"
                   data-selected={selectedCohortDate === cohort.date}
                   role="row"

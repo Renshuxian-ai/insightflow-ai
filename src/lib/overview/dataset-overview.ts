@@ -208,7 +208,7 @@ function normalizeEventValue(value: DatasetCellValue): string | null {
 const DASHED_CSV_TEMPORAL_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?)?$/;
 const SLASHED_CSV_TEMPORAL_PATTERN =
-  /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/;
+  /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
 
 function getCommonCsvDateKey(value: DatasetCellValue): string | null {
   if (typeof value !== "string") {
@@ -247,7 +247,11 @@ function getCommonCsvDateKey(value: DatasetCellValue): string | null {
     return null;
   }
 
-  return [match[1], match[2], match[3]].join("-");
+  return [
+    String(year).padStart(4, "0"),
+    String(month).padStart(2, "0"),
+    String(day).padStart(2, "0"),
+  ].join("-");
 }
 
 function getDateKey(value: DatasetCellValue): string | null {

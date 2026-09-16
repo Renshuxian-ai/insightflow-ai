@@ -36,6 +36,16 @@ function errorResult(toolName: string): ToolExecutionResult {
 }
 
 function isContextAllowed(context: ToolExecutionContext): boolean {
+  if (
+    context.executionScope === "retention-dataset" ||
+    context.executionScope === "analytics-dataset"
+  ) {
+    return (
+      context.diagnosticCase.source === "dataset" &&
+      context.diagnosticCase.status === "ready"
+    );
+  }
+
   return (
     context.diagnosticCase.source === "mock" &&
     context.diagnosticCase.status === "ready"
@@ -69,10 +79,20 @@ export async function executeToolRequest(
     return rejectedResult(request.name, "This tool is not available for investigation.");
   }
 
+  if (
+    context.allowedToolNames &&
+    !context.allowedToolNames.includes(tool.name)
+  ) {
+    return rejectedResult(
+      tool.name,
+      "This tool is not available for this investigation scope.",
+    );
+  }
+
   if (!isContextAllowed(context)) {
     return rejectedResult(
       tool.name,
-      "This tool can only read a ready mock DiagnosticCase.",
+      "This tool cannot read the current DiagnosticCase.",
     );
   }
 

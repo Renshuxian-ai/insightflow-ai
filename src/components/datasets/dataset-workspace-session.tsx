@@ -7,10 +7,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useEffect,
+  useTransition,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import type {
   SemanticAutoUsePolicyResult,
@@ -19,7 +22,8 @@ import type {
   SemanticSchema,
 } from "@/lib/datasets/semantic/types";
 import type { Dataset } from "@/lib/datasets/types";
-import type { DatasetOverviewResult } from "@/lib/overview/dataset-overview";
+import type { OverviewRuntime } from "@/lib/overview/overview-runtime";
+import { RUNTIME_SESSION_HEADER } from "@/lib/runtime-session";
 
 export type WorkspaceStatus = "idle" | "uploading" | "ready" | "error";
 
@@ -55,6 +59,7 @@ type DatasetOverviewRequest = {
 };
 
 type DatasetWorkspaceSession = {
+  runtimeSessionId: string;
   status: WorkspaceStatus;
   setStatus: Dispatch<SetStateAction<WorkspaceStatus>>;
   dataset: Dataset | null;
@@ -91,7 +96,7 @@ type DatasetWorkspaceSession = {
   setCurrentReviewKey: Dispatch<SetStateAction<string | null>>;
   sheetReviewLabels: Record<string, string>;
   setSheetReviewLabels: Dispatch<SetStateAction<Record<string, string>>>;
-  datasetOverview: DatasetOverviewResult | null;
+  overviewRuntime: OverviewRuntime | null;
   overviewStatus: DatasetOverviewStatus;
   overviewError: string | null;
   requestDatasetOverview: (
@@ -118,14 +123,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isDatasetOverviewResult(
+function isOverviewRuntime(
   value: unknown,
-): value is DatasetOverviewResult {
+): value is OverviewRuntime {
   if (!isRecord(value) || value.version !== 1 || value.source !== "dataset") {
     return false;
   }
 
-  if (!isRecord(value.metrics) || !isRecord(value.dailyDau)) {
+  if (
+    !isRecord(value.metrics) ||
+    !isRecord(value.dailyDau) ||
+    !isRecord(value.trends) ||
+    !isRecord(value.analytics) ||
+    !isRecord(value.feedbackTopics) ||
+    !isRecord(value.userSegments)
+  ) {
     return false;
   }
 
@@ -155,6 +167,11 @@ export function DatasetWorkspaceSessionProvider({
 }: {
   children: ReactNode;
 }) {
+  const router = useRouter();
+  const [runtimeSessionId, setRuntimeSessionId] = useState<string | null>(null);
+  const [runtimeReady, setRuntimeReady] = useState(false);
+  const [runtimeBootstrapError, setRuntimeBootstrapError] = useState(false);
+  const [isRuntimeTransitionPending, startRuntimeTransition] = useTransition();
   const [status, setStatus] = useState<WorkspaceStatus>("idle");
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -179,8 +196,8 @@ export function DatasetWorkspaceSessionProvider({
   const [sheetReviewLabels, setSheetReviewLabels] = useState<
     Record<string, string>
   >({});
-  const [datasetOverview, setDatasetOverview] =
-    useState<DatasetOverviewResult | null>(null);
+  const [overviewRuntime, setOverviewRuntime] =
+    useState<OverviewRuntime | null>(null);
   const [overviewStatus, setOverviewStatus] =
     useState<DatasetOverviewStatus>("idle");
   const [overviewError, setOverviewError] = useState<string | null>(null);
@@ -194,11 +211,45 @@ export function DatasetWorkspaceSessionProvider({
   const overviewRequestId = useRef(0);
   const activeOverviewRequest = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const nextRuntimeSessionId = crypto.randomUUID();
+
+    void fetch("/api/runtime-session", {
+      method: "POST",
+      headers: {
+        [RUNTIME_SESSION_HEADER]: nextRuntimeSessionId,
+      },
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok || controller.signal.aborted) {
+          if (!controller.signal.aborted) {
+            setRuntimeBootstrapError(true);
+          }
+          return;
+        }
+
+        startRuntimeTransition(() => {
+          setRuntimeSessionId(nextRuntimeSessionId);
+          setRuntimeReady(true);
+          router.refresh();
+        });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setRuntimeBootstrapError(true);
+        }
+      });
+
+    return () => controller.abort();
+  }, [router]);
+
   const clearDatasetOverview = useCallback(() => {
     overviewRequestId.current += 1;
     activeOverviewRequest.current?.abort();
     activeOverviewRequest.current = null;
-    setDatasetOverview(null);
+    setOverviewRuntime(null);
     setOverviewStatus("idle");
     setOverviewError(null);
   }, []);
@@ -216,7 +267,7 @@ export function DatasetWorkspaceSessionProvider({
 
       const controller = new AbortController();
       activeOverviewRequest.current = controller;
-      setDatasetOverview(null);
+      setOverviewRuntime(null);
       setOverviewStatus("loading");
       setOverviewError(null);
 
@@ -238,6 +289,9 @@ export function DatasetWorkspaceSessionProvider({
       try {
         const response = await fetch("/api/datasets/overview", {
           method: "POST",
+          headers: {
+            [RUNTIME_SESSION_HEADER]: runtimeSessionId ?? "",
+          },
           body: formData,
           signal: controller.signal,
         });
@@ -248,7 +302,7 @@ export function DatasetWorkspaceSessionProvider({
 
         const result: unknown = await response.json();
 
-        if (!isDatasetOverviewResult(result)) {
+        if (!isOverviewRuntime(result)) {
           throw new Error(
             "Dataset analytics returned an invalid result. Please try again.",
           );
@@ -258,7 +312,7 @@ export function DatasetWorkspaceSessionProvider({
           return;
         }
 
-        setDatasetOverview(result);
+        setOverviewRuntime(result);
         setOverviewStatus("ready");
         setOverviewError(null);
       } catch (error) {
@@ -269,7 +323,7 @@ export function DatasetWorkspaceSessionProvider({
           return;
         }
 
-        setDatasetOverview(null);
+        setOverviewRuntime(null);
         setOverviewStatus("error");
         setOverviewError(
           error instanceof Error
@@ -282,7 +336,7 @@ export function DatasetWorkspaceSessionProvider({
         }
       }
     },
-    [clearDatasetOverview],
+    [clearDatasetOverview, runtimeSessionId],
   );
 
   const retryDatasetOverview = useCallback(() => {
@@ -299,6 +353,7 @@ export function DatasetWorkspaceSessionProvider({
 
   const value = useMemo<DatasetWorkspaceSession>(
     () => ({
+      runtimeSessionId: runtimeSessionId ?? "",
       status,
       setStatus,
       dataset,
@@ -329,7 +384,7 @@ export function DatasetWorkspaceSessionProvider({
       setCurrentReviewKey,
       sheetReviewLabels,
       setSheetReviewLabels,
-      datasetOverview,
+      overviewRuntime,
       overviewStatus,
       overviewError,
       requestDatasetOverview,
@@ -348,7 +403,7 @@ export function DatasetWorkspaceSessionProvider({
       clearDatasetOverview,
       currentReviewKey,
       dataset,
-      datasetOverview,
+      overviewRuntime,
       datasetContext,
       error,
       fieldEvidence,
@@ -365,8 +420,34 @@ export function DatasetWorkspaceSessionProvider({
       overviewStatus,
       requestDatasetOverview,
       retryDatasetOverview,
+      runtimeSessionId,
     ],
   );
+
+  if (runtimeBootstrapError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6 text-center">
+        <div>
+          <p className="text-sm font-semibold text-[#526078]">
+            Demo workspace could not be started.
+          </p>
+          <p className="mt-1 text-xs text-[#98a1b1]">
+            Refresh the page to start a new session.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!runtimeReady || isRuntimeTransitionPending || !runtimeSessionId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6">
+        <p className="text-sm font-medium text-[#7e8798]">
+          Preparing demo workspace...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <DatasetWorkspaceSessionContext.Provider value={value}>

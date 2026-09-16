@@ -9,6 +9,7 @@ import type {
   SemanticRole,
   SemanticType,
 } from "./types";
+import { isConditionalCohortDateFieldName } from "./field-classification";
 
 type FieldNameRule = {
   patterns: RegExp[];
@@ -177,6 +178,17 @@ export function getHeuristicSemanticCandidates(
   field: FieldProfile,
 ): HeuristicSemanticCandidate[] {
   const normalizedName = normalizeFieldName(field.originalName || field.displayName);
+  if (isConditionalCohortDateFieldName(normalizedName)) {
+    return [
+      createCandidate(
+        SEMANTIC_TYPE_IDS.cohortDate,
+        0.95,
+        "Cohort date",
+        `The normalized field name "${normalizedName}" identifies a cohort or acquisition grouping field, not the event timestamp.`,
+      ),
+    ];
+  }
+
   const candidates = fieldNameRules
     .filter((rule) => rule.patterns.some((pattern) => pattern.test(normalizedName)))
     .map((rule) =>

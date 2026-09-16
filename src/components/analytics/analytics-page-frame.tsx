@@ -1,23 +1,37 @@
+"use client";
+
 import type { ReactNode } from "react";
+
+import { useLanguage } from "@/components/i18n/language-provider";
 
 type AnalyticsPageFrameProps = {
   title: string;
   description: string;
   children: ReactNode;
+  sourceLabel?: string;
 };
 
 export function AnalyticsPageFrame({
   title,
   description,
   children,
+  sourceLabel = "DEMO DATA",
 }: AnalyticsPageFrameProps) {
+  const { t } = useLanguage();
+  const displayedSourceLabel =
+    sourceLabel === "DEMO DATA"
+      ? t("analytics.demoData")
+      : sourceLabel === "UPLOADED DATASET"
+        ? t("analytics.uploadedDataset")
+        : sourceLabel;
+
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
       <header className="flex flex-col justify-between gap-5 border-b border-[#e6e9ef] pb-6 sm:flex-row sm:items-end">
         <div>
           <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-[#7e8798]">
-              Analytics
+              {t("analytics.category")}
             </p>
             <span aria-hidden="true" className="text-[#b3bac6]">
               /
@@ -31,8 +45,14 @@ export function AnalyticsPageFrame({
             {description}
           </p>
         </div>
-        <span className="w-fit rounded-md bg-[#fff6e4] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#8a5b00]">
-          DEMO DATA
+        <span
+          className={
+            sourceLabel === "DEMO DATA"
+              ? "w-fit rounded-md bg-[#fff6e4] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#8a5b00]"
+              : "w-fit rounded-md bg-[#edf1ff] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#3559e8]"
+          }
+        >
+          {displayedSourceLabel}
         </span>
       </header>
       {children}
@@ -60,10 +80,12 @@ const summaryToneStyles = {
 } as const;
 
 export function AnalyticsSummaryGrid({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
+
   return (
     <section
       className="mt-6 grid gap-3 sm:grid-cols-3"
-      aria-label="Analytics summary"
+      aria-label={t("analytics.summary")}
     >
       {children}
     </section>

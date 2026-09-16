@@ -12,7 +12,7 @@ export const INVESTIGATION_RESULT_SHAPE = `{
     {
       "id": "reference-id",
       "sourceType": "metric | context | behavior-signal | feedback-signal",
-      "sourceId": "exact DiagnosticCase source ID",
+      "sourceId": "exact DiagnosticCase or successful tool source ID",
       "relevance": "string"
     }
   ],
@@ -55,7 +55,8 @@ export const INVESTIGATION_OUTPUT_CONTRACT = [
   "- Exact enums: sourceType is metric, context, behavior-signal, or feedback-signal; qualification is possible-not-confirmed or alternative-to-rule-out; evidenceRelationship is supporting or context-only; confidence is low, medium, or high; priority is primary or supporting.",
   "- IDs must be unique within evidenceUsed, possibleExplanations, and recommendedValidations.",
   "Grounding reference contract:",
-  "- evidenceUsed is required. Give each item a unique model-created id, and set its sourceId to an exact metric, context, behavior-signal, or feedback-signal ID from the DiagnosticCase. Do not invent sourceId values.",
+  "- evidenceUsed is required. Give each item a unique model-created id, and set its sourceId to an exact source ID from the DiagnosticCase or from a successful tool observation sourceReferences array. Do not invent sourceId values.",
+  "- Every successful tool observation is additional evidence. Reference at least one of that observation's exact sourceReferences in evidenceUsed.",
   "- summary.evidenceReferenceIds is required and must not be omitted. Select 1-20 evidenceUsed[*].id values that directly support the factual claims in summary.text.",
   "- possibleExplanations[*].evidenceReferenceIds is required for every explanation and must not be omitted. Select 1-20 evidenceUsed[*].id values relevant to that explanation while keeping the explanation explicitly unconfirmed.",
   "- workingHypothesis.evidenceReferenceIds is required and must not be omitted. Select 1-20 evidenceUsed[*].id values relevant to the unvalidated hypothesis.",
@@ -92,13 +93,31 @@ export function buildInitialAgentMessages(
   ];
 }
 
-export function buildFinalGenerationMessage(): AgentMessage {
+export function buildFinalGenerationMessage(
+  allowedEvidenceSources: readonly {
+    sourceType: string;
+    sourceId: string;
+  }[] = [],
+  primarySignal: DiagnosticCase["primarySignal"] = undefined,
+): AgentMessage {
   return {
     role: "user",
     content: [
       "Use the DiagnosticCase and any tool observations above to produce one final InvestigationResult JSON object.",
       "Treat evidence as facts, possibleExplanations as unconfirmed inference, and workingHypothesis as unvalidated.",
       "Do not omit summary.evidenceReferenceIds, possibleExplanations[*].evidenceReferenceIds, or workingHypothesis.evidenceReferenceIds.",
+      ...(allowedEvidenceSources.length > 0
+        ? [
+            "For every evidenceUsed item, copy one exact sourceType/sourceId pair from this final whitelist. Never combine a sourceType from one pair with a sourceId from another pair:",
+            JSON.stringify(allowedEvidenceSources),
+          ]
+        : []),
+      ...(primarySignal
+        ? [
+            "The primary signal remains the investigation anchor. The focus, summary, workingHypothesis.statement, and every recommendedValidations[*].rationale must each explicitly include both its segment and interval.",
+            `Primary signal JSON:\n${JSON.stringify(primarySignal)}`,
+          ]
+        : []),
       "Return no Markdown or explanatory text outside JSON.",
       INVESTIGATION_OUTPUT_CONTRACT,
       `Required JSON shape:\n${INVESTIGATION_RESULT_SHAPE}`,

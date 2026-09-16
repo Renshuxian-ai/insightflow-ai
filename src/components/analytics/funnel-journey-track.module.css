@@ -1,0 +1,209 @@
+.journeyItem {
+  --journey-delay: 0ms;
+  opacity: 0;
+  translate: 0 8px;
+  animation-name: journeyEntrance;
+  animation-duration: 280ms;
+  animation-delay: var(--journey-delay);
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+.transitionCard {
+  outline: none;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.transitionCard:hover,
+.transitionCard:focus-visible,
+.activeCard {
+  transform: translateY(-2px);
+  border-color: #bdc9f7;
+  box-shadow: 0 6px 16px rgb(53 89 232 / 9%);
+}
+
+.transitionCard:focus-visible {
+  box-shadow:
+    0 0 0 3px rgb(53 89 232 / 12%),
+    0 6px 16px rgb(53 89 232 / 9%);
+}
+
+.primaryCard {
+  animation-name: journeyEntrance, primaryEmphasis;
+  animation-duration: 280ms, 420ms;
+  animation-delay:
+    var(--journey-delay),
+    calc(var(--journey-delay) + 300ms);
+  animation-timing-function:
+    cubic-bezier(0.22, 1, 0.36, 1),
+    ease-out;
+  animation-fill-mode: both, none;
+}
+
+.primaryCard:hover,
+.primaryCard:focus-visible,
+.primaryCard.activeCard {
+  border-color: #e5adad;
+  box-shadow: 0 6px 16px rgb(196 66 66 / 10%);
+}
+
+.primaryCard:focus-visible {
+  box-shadow:
+    0 0 0 3px rgb(196 66 66 / 11%),
+    0 6px 16px rgb(196 66 66 / 10%);
+}
+
+.connector {
+  color: #98a1b1;
+  transition: color 180ms ease;
+}
+
+.connectorLine {
+  position: relative;
+  overflow: hidden;
+  background: #cfd5df;
+  transition: background-color 180ms ease;
+}
+
+.connectorLine::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(53 89 232 / 12%) 35%,
+    rgb(53 89 232 / 42%) 72%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: connectorSweep 360ms ease-out both;
+  animation-delay: calc(var(--journey-delay) + 40ms);
+}
+
+.connectorActive {
+  color: #6079d8;
+}
+
+.connectorActive .connectorLine {
+  background: #aab8eb;
+}
+
+.metricReveal {
+  opacity: 0;
+  translate: 0 4px;
+  animation: metricReveal 220ms ease-out both;
+  animation-delay: calc(var(--journey-delay) + 140ms);
+}
+
+.primaryDropoffValue {
+  animation-delay: calc(var(--journey-delay) + 240ms);
+}
+
+.conversionFill {
+  width: 0;
+  animation: conversionFill 820ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--journey-delay) + 240ms);
+}
+
+.animatedPercentage {
+  display: inline;
+}
+
+.reducedMotionPercentage {
+  display: none;
+}
+
+@keyframes journeyEntrance {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes connectorSweep {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes primaryEmphasis {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(196 66 66 / 0%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgb(196 66 66 / 10%);
+  }
+}
+
+@keyframes metricReveal {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes conversionFill {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: var(--conversion-width);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journeyItem,
+  .primaryCard,
+  .metricReveal {
+    opacity: 1;
+    translate: none;
+    animation: none;
+  }
+
+  .connectorLine::after {
+    display: none;
+  }
+
+  .conversionFill {
+    width: var(--conversion-width);
+    animation: none;
+  }
+
+  .animatedPercentage {
+    display: none;
+  }
+
+  .reducedMotionPercentage {
+    display: inline;
+  }
+
+  .transitionCard,
+  .transitionCard:hover,
+  .transitionCard:focus-visible,
+  .activeCard {
+    transform: none;
+    transition-property: border-color, box-shadow, background-color;
+  }
+}

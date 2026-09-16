@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 
-import type { DemoAnalyticsResult } from "@/lib/analytics/demo-analytics";
+import type { RetentionIntervalPresentation } from "@/lib/analytics/retention-presentation";
 
 import { AnalyticsSectionHeader } from "./analytics-page-frame";
 
-type RetentionInterval =
-  DemoAnalyticsResult["retention"]["current"]["intervals"][number];
-
 type RetentionCurveProps = {
-  currentIntervals: RetentionInterval[];
-  baselineIntervals: RetentionInterval[];
+  currentIntervals: RetentionIntervalPresentation[];
+  baselineIntervals: RetentionIntervalPresentation[];
   selectedInterval?: string | null;
   selectedCohortDate?: string | null;
   onSelectInterval?: (interval: string) => void;
@@ -20,8 +17,8 @@ type RetentionCurveProps = {
 
 type CurvePoint = {
   day: number;
-  current: RetentionInterval;
-  baseline: RetentionInterval;
+  current: RetentionIntervalPresentation;
+  baseline: RetentionIntervalPresentation;
   x: number;
 };
 

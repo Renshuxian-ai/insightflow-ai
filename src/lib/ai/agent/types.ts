@@ -2,6 +2,8 @@ import type {
   ToolExecutionResult,
   ToolInputSchema,
   ToolName,
+  ToolObservation,
+  ToolSourceReference,
 } from "../tools/types";
 
 export type AgentMessage =
@@ -27,7 +29,10 @@ export type AgentToolCall = {
   input: unknown;
 };
 
-export type AgentTurnPhase = "tool-selection" | "final-generation";
+export type AgentTurnPhase =
+  | "tool-selection"
+  | "evidence-evaluation"
+  | "final-generation";
 
 export type ProviderToolDefinition = {
   name: ToolName;
@@ -76,6 +81,7 @@ export type AgentTrace = {
   limits: {
     maxToolRounds: number;
     maxToolCalls: number;
+    maxEvidenceIterations?: number;
   };
   events: AgentTraceEvent[];
 };
@@ -83,4 +89,10 @@ export type AgentTrace = {
 export type BoundedInvestigationAgentResult = {
   output: unknown;
   trace: AgentTrace;
+  toolEvidence: Array<{
+    toolName: string;
+    status: ToolExecutionResult["status"];
+    observation: ToolObservation;
+    sourceReferences: ToolSourceReference[];
+  }>;
 };

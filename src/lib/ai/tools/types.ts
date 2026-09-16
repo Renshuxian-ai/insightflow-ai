@@ -1,9 +1,14 @@
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
+import type { DatasetAnalyticsContext } from "@/lib/analytics/dataset-context";
 
 export type ToolName =
   | "query_metric"
   | "analyze_segment"
-  | "search_feedback";
+  | "search_feedback"
+  | "retention_analysis"
+  | "funnel_analysis"
+  | "feedback_analysis"
+  | "segment_analysis";
 
 export type ToolInput = Record<string, string>;
 
@@ -16,6 +21,9 @@ export type ToolInputSchema = {
 
 export type ToolExecutionContext = Readonly<{
   diagnosticCase: DiagnosticCase;
+  executionScope?: "mock" | "retention-dataset" | "analytics-dataset";
+  allowedToolNames?: readonly ToolName[];
+  datasetAnalyticsContext?: DatasetAnalyticsContext;
 }>;
 
 export type ToolSourceReference = {
@@ -54,6 +62,8 @@ export type ToolDefinition = {
     context: ToolExecutionContext,
   ) => Promise<ToolObservation>;
 };
+
+export type AnalyticsTool = ToolDefinition;
 
 export type ToolRequest = {
   name: string;

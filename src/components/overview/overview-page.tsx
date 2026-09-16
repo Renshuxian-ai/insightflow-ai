@@ -5,14 +5,18 @@ import {
   createOverviewViewModel,
   type OverviewViewModel,
 } from "@/lib/overview/overview-view-model";
-import { feedbackTopics, userSegments } from "@/lib/overview-mock-data";
 
 import { AnomalyCard } from "./anomaly-card";
 import { FeedbackTopicsCard } from "./feedback-topics-card";
 import { KpiCard } from "./kpi-card";
 import { OverviewFilters } from "./overview-filters";
 import { ProductTrendCard } from "./product-trend-card";
+import {
+  RecentInvestigationsCard,
+  type RecentInvestigationItem,
+} from "./recent-investigations-card";
 import { UserSegmentCard } from "./user-segment-card";
+import { overviewScrollRegionClassName } from "./overview-scroll-region";
 
 function OverviewStatusCard({ viewModel }: { viewModel: OverviewViewModel }) {
   const isLoading = viewModel.status === "loading";
@@ -44,14 +48,24 @@ function OverviewStatusCard({ viewModel }: { viewModel: OverviewViewModel }) {
   );
 }
 
-export function OverviewPage() {
-  const { dataset, datasetOverview, overviewStatus, overviewError } =
+export function OverviewPage({
+  recentInvestigations,
+}: {
+  recentInvestigations: RecentInvestigationItem[];
+}) {
+  const {
+    dataset,
+    overviewRuntime,
+    overviewStatus,
+    overviewError,
+  } =
     useDatasetWorkspaceSession();
   const viewModel = createOverviewViewModel({
-    datasetOverview,
+    overviewRuntime,
     overviewStatus,
     overviewError,
     datasetName: dataset?.file.originalFileName ?? null,
+    hasDataset: Boolean(dataset),
   });
 
   return (
@@ -111,7 +125,7 @@ export function OverviewPage() {
                   data={viewModel.trend.data}
                 />
               ) : (
-                <section className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
+                <section className="h-[420px] rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Product health</p>
                   <h2 className="mt-1 text-base font-semibold text-[#172033]">Product trend</h2>
                   <p className="mt-6 text-xl font-semibold text-[#687387]">Unavailable</p>
@@ -121,13 +135,13 @@ export function OverviewPage() {
                 </section>
               )}
             </div>
-            <section className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]" aria-labelledby="anomalies-title">
-              <div>
+            <section className="flex h-[420px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]" aria-labelledby="anomalies-title">
+              <div className="shrink-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Where to look next</p>
                 <h2 id="anomalies-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]">{viewModel.anomalyTitle}</h2>
                 <p className="mt-1 text-[13px] text-[#778196]">{viewModel.anomalySummary}</p>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className={`mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-1 ${overviewScrollRegionClassName}`}>
                 {viewModel.anomalies.length > 0 ? (
                   viewModel.anomalies.map((anomaly) => (
                     <AnomalyCard key={anomaly.id} anomaly={anomaly} />
@@ -142,12 +156,38 @@ export function OverviewPage() {
             </section>
           </section>
 
-          {viewModel.mode === "demo" ? (
-            <section className="mt-6 grid gap-6 lg:grid-cols-2">
-              <UserSegmentCard segments={userSegments} />
-              <FeedbackTopicsCard topics={feedbackTopics} />
-            </section>
-          ) : null}
+          <section className="mt-6 grid gap-6 lg:grid-cols-2">
+            {viewModel.mode === "dataset" ? (
+              <RecentInvestigationsCard
+                investigations={recentInvestigations}
+              />
+            ) : (
+              <UserSegmentCard
+                segments={
+                  viewModel.userSegments.status === "available"
+                    ? viewModel.userSegments.items
+                    : []
+                }
+                unavailableReason={
+                  viewModel.userSegments.status === "unavailable"
+                    ? viewModel.userSegments.reason
+                    : undefined
+                }
+              />
+            )}
+            <FeedbackTopicsCard
+              topics={
+                viewModel.feedbackTopics.status === "available"
+                  ? viewModel.feedbackTopics.items
+                  : []
+              }
+              unavailableReason={
+                viewModel.feedbackTopics.status === "unavailable"
+                  ? viewModel.feedbackTopics.reason
+                  : undefined
+              }
+            />
+          </section>
         </>
       )}
     </main>

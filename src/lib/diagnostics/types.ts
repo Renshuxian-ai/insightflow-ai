@@ -57,12 +57,31 @@ export type NextValidation = {
   description: string;
 };
 
+export type DiagnosticInvestigationTarget = {
+  id: string;
+  title: string;
+  relatedSegment: string;
+};
+
+export type DiagnosticPrimarySignal = {
+  metric: string;
+  interval: string;
+  segmentDimension: string;
+  segment: string;
+  currentValue: number;
+  baselineValue: number;
+  gap: number;
+  affectedUsers: number;
+};
+
 export type DiagnosticCase = {
   id: string;
   source: "mock" | "dataset";
   status: "ready";
   severity: DiagnosticSeverity;
   title: string;
+  investigationTarget?: DiagnosticInvestigationTarget;
+  primarySignal?: DiagnosticPrimarySignal;
   metric: DiagnosticMetric;
   context: {
     dateRange: DiagnosticContextItem;

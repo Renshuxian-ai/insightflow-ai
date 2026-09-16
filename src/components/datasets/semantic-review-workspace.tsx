@@ -15,8 +15,11 @@ import {
 } from "@/lib/datasets/semantic/auto-use-policy";
 import {
   getSemanticTypeDefinition,
-  SEMANTIC_TYPE_IDS,
 } from "@/lib/datasets/semantic/semantic-type-registry";
+import {
+  getFieldImportance,
+  type FieldImportance,
+} from "@/lib/datasets/semantic/field-importance";
 import type {
   SemanticAutoUsePolicyResult,
   SemanticFieldMapping,
@@ -69,68 +72,12 @@ const filterOptions: Array<{
   { value: "all", label: "All" },
 ];
 
-function isCoreAnalysisField(
-  field: SemanticFieldMapping,
-  understanding: SemanticFieldUnderstanding,
-): boolean {
-  const semanticType =
-    understanding.effectiveMapping?.semanticType ??
-    field.suggestion?.semanticType;
-
-  return (
-    semanticType === SEMANTIC_TYPE_IDS.userId ||
-    semanticType === SEMANTIC_TYPE_IDS.eventTimestamp
-  );
-}
-
-function getFieldStatus(
-  field: SemanticFieldMapping,
-  understanding: SemanticFieldUnderstanding,
-): { label: string; className: string } {
-  switch (field.resolution.status) {
-    case "accepted":
-      break;
-    case "edited":
-      return {
-        label: "Changed by you",
-        className: "bg-[#edf1ff] text-[#5269bf]",
-      };
-    case "excluded":
-      return {
-        label: "Not used",
-        className: "bg-[#f1f3f7] text-[#667085]",
-      };
-    case "unresolved":
-      return {
-        label: "Unresolved",
-        className: "bg-[#fff6df] text-[#8a5b00]",
-      };
-    case "suggested":
-      break;
-  }
-
-  if (understanding.isBlocking) {
-    return {
-      label: "Required",
-      className: "bg-[#fff0ef] text-[#a44848]",
-    };
-  }
-
-  if (
-    understanding.status === "needs-review" ||
-    understanding.status === "meaning-unclear"
-  ) {
-    return {
-      label: "Optional",
-      className: "bg-[#fff6df] text-[#8a5b00]",
-    };
-  }
-
-  return {
-    label: "Ready to use",
-    className: "bg-[#eaf8f0] text-[#27714b]",
-  };
-}
+const importanceClassNames: Record<FieldImportance, string> = {
+  critical: "bg-[#fff0ef] text-[#a44848]",
+  important: "bg-[#fff6df] text-[#8a5b00]",
+  contextual: "bg-[#edf1ff] text-[#5269bf]",
+  low: "bg-[#f1f3f7] text-[#667085]",
+};
 
 function isFieldInFilter(
   field: SemanticFieldMapping,
@@ -270,6 +217,10 @@ export function SemanticReviewWorkspace({
   const selectedEvidence = selectedField
     ? (evidenceByKey.get(selectedField.stableFieldKey) ?? null)
     : null;
+  const selectedImportance =
+    selectedField && selectedPhysicalField
+      ? getFieldImportance(selectedField, selectedPhysicalField)
+      : null;
   const requiredFields = schema.fields.filter(
     (field) => understandings.get(field.stableFieldKey)?.isBlocking,
   );
@@ -616,7 +567,12 @@ export function SemanticReviewWorkspace({
                       return null;
                     }
 
-                    const status = getFieldStatus(field, understanding);
+                    const physicalField = physicalFieldsByKey.get(
+                      field.stableFieldKey,
+                    );
+                    const importance = physicalField
+                      ? getFieldImportance(field, physicalField)
+                      : null;
                     const isSelected =
                       field.stableFieldKey === activeFieldKey;
 
@@ -639,24 +595,13 @@ export function SemanticReviewWorkspace({
                           <span className="mt-1 block truncate text-[11px] text-[#778196]">
                             {getFieldMeaning(field, understanding)}
                           </span>
-                          <span className="mt-2 flex flex-col items-start gap-1">
+                          {importance ? (
                             <span
-                              className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.className}`}
+                              className={`mt-2 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${importanceClassNames[importance.importance]}`}
                             >
-                              {status.label}
+                              {importance.label}
                             </span>
-                            {understanding.isBlocking &&
-                            status.label !== "Required" ? (
-                              <span className="inline-flex rounded bg-[#fff0ef] px-1.5 py-0.5 text-[10px] font-semibold text-[#a44848]">
-                                Required
-                              </span>
-                            ) : null}
-                            {isCoreAnalysisField(field, understanding) ? (
-                              <span className="inline-flex rounded bg-[#edf1ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#5269bf]">
-                                Core analysis field
-                              </span>
-                            ) : null}
-                          </span>
+                          ) : null}
                         </button>
                       </li>
                     );
@@ -712,6 +657,7 @@ export function SemanticReviewWorkspace({
                   physicalField={selectedPhysicalField}
                   understanding={selectedUnderstanding}
                   evidence={selectedEvidence}
+                  importance={selectedImportance}
                   readOnly={schema.status === "confirmed"}
                   onUseSuggestion={() => handleUseSuggestion(selectedField)}
                   onEdit={(value) => handleEdit(selectedField, value)}

@@ -1,0 +1,45 @@
+.trendLine {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trendLineDraw 960ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.trendReveal {
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: trendAreaReveal 960ms cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@keyframes trendLineDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trendAreaReveal {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trendLine {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .trendReveal {
+    transform: none;
+    animation: none;
+  }
+}
