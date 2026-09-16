@@ -56,6 +56,10 @@ export type SemanticReviewWorkspaceProps = {
     field: SemanticFieldMapping,
     value: SemanticMappingValue,
   ) => void;
+  onSaveUnresolvedDescription: (
+    field: SemanticFieldMapping,
+    description: string,
+  ) => void;
   onExclude: (field: SemanticFieldMapping, reason: string) => void;
   onMarkUnresolved: (field: SemanticFieldMapping) => void;
   onResetDecision: (field: SemanticFieldMapping) => void;
@@ -101,8 +105,7 @@ function isFieldInFilter(
   }
 
   return Boolean(
-    field.resolution.status === "suggested" &&
-      !understanding.isBlocking &&
+    !understanding.isBlocking &&
       (understanding.status === "needs-review" ||
         understanding.status === "meaning-unclear"),
   );
@@ -143,6 +146,7 @@ export function SemanticReviewWorkspace({
   onActiveFieldChange,
   onUseSuggestion,
   onEdit,
+  onSaveUnresolvedDescription,
   onExclude,
   onMarkUnresolved,
   onResetDecision,
@@ -661,6 +665,9 @@ export function SemanticReviewWorkspace({
                   readOnly={schema.status === "confirmed"}
                   onUseSuggestion={() => handleUseSuggestion(selectedField)}
                   onEdit={(value) => handleEdit(selectedField, value)}
+                  onSaveUnresolvedDescription={(description) =>
+                    onSaveUnresolvedDescription(selectedField, description)
+                  }
                   onExclude={(reason) => handleExclude(selectedField, reason)}
                   onMarkUnresolved={() =>
                     handleMarkUnresolved(selectedField)

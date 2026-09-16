@@ -1118,6 +1118,9 @@ export function SemanticSchemaReview({
         onEdit={(field, value: SemanticMappingValue) =>
           updateField(field, () => createEditedResolution(field, value))
         }
+        onSaveUnresolvedDescription={(field, description) =>
+          updateField(field, () => createUnresolvedResolution(description))
+        }
         onExclude={(field, reason) =>
           updateField(field, () => createExcludedResolution(reason))
         }

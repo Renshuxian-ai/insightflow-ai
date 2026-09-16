@@ -155,15 +155,9 @@ function getRemainingReviewCount(draft: SemanticReviewDraft): number {
     draft.autoUsePolicy,
   );
 
-  return draft.schema.fields.filter((field) => {
-    const understanding = understandings.get(field.stableFieldKey);
-
-    return Boolean(
-      understanding?.isBlocking ||
-        (field.resolution.status === "suggested" &&
-          understanding?.status !== "ready-to-use"),
-    );
-  }).length;
+  return draft.schema.fields.filter(
+    (field) => understandings.get(field.stableFieldKey)?.isBlocking,
+  ).length;
 }
 
 function createSheetReviewStatusKey(

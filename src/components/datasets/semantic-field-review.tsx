@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { SemanticFieldUnderstanding } from "@/lib/datasets/semantic/auto-use-policy";
+import { getSemanticFieldEditState } from "@/lib/datasets/semantic/field-review-editor";
 import type {
   FieldImportance,
   FieldImportanceAssessment,
@@ -29,6 +30,7 @@ type SemanticFieldReviewProps = {
   readOnly: boolean;
   onUseSuggestion: () => void;
   onEdit: (value: SemanticMappingValue) => void;
+  onSaveUnresolvedDescription: (description: string) => void;
   onExclude: (reason: string) => void;
   onMarkUnresolved: () => void;
   onResetDecision: () => void;
@@ -300,6 +302,14 @@ function getEditableValue(
   mapping: SemanticFieldMapping,
   understanding: SemanticFieldUnderstanding,
 ): SemanticMappingValue {
+  if (mapping.resolution.status === "unresolved") {
+    return {
+      semanticRole: "unknown",
+      semanticType: SEMANTIC_TYPE_IDS.unknown,
+      businessMeaning: mapping.resolution.reason,
+    };
+  }
+
   if (understanding.effectiveMapping) {
     return understanding.effectiveMapping;
   }
@@ -476,6 +486,7 @@ export function SemanticFieldReview({
   readOnly,
   onUseSuggestion,
   onEdit,
+  onSaveUnresolvedDescription,
   onExclude,
   onMarkUnresolved,
   onResetDecision,
@@ -521,13 +532,14 @@ export function SemanticFieldReview({
       ),
     [],
   );
-  const isDirty =
-    reviewMode === "edit" &&
-    (editType !== initialValue.semanticType ||
-      description !== (initialValue.businessMeaning ?? ""));
-  const canSave =
-    editType !== SEMANTIC_TYPE_IDS.unknown &&
-    semanticTypeRegistry[editType] !== undefined;
+  const editState = getSemanticFieldEditState({
+    initialSemanticType: initialValue.semanticType,
+    currentSemanticType: editType,
+    initialDescription: initialValue.businessMeaning ?? "",
+    currentDescription: description,
+  });
+  const isDirty = reviewMode === "edit" && editState.isDirty;
+  const canSave = reviewMode === "edit" && editState.canSave;
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -569,8 +581,14 @@ export function SemanticFieldReview({
     }
   }
 
-  function saveMeaning() {
+  function saveChanges() {
     if (!canSave) {
+      return;
+    }
+
+    if (editState.saveMode === "description-only") {
+      onSaveUnresolvedDescription(description.trim());
+      closeEditor();
       return;
     }
 
@@ -971,10 +989,12 @@ export function SemanticFieldReview({
               <button
                 type="button"
                 disabled={!canSave}
-                onClick={saveMeaning}
+                onClick={saveChanges}
                 className="rounded-lg bg-[#3559e8] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2949ca] disabled:cursor-not-allowed disabled:bg-[#b7c0d6]"
               >
-                Save meaning
+                {editState.saveMode === "description-only"
+                  ? "Save changes"
+                  : "Save meaning"}
               </button>
               <button
                 type="button"
