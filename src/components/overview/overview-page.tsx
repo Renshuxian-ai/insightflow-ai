@@ -55,6 +55,7 @@ export function OverviewPage({
 }) {
   const {
     dataset,
+    datasetName,
     datasetMode,
     overviewRuntime,
     overviewStatus,
@@ -65,7 +66,7 @@ export function OverviewPage({
     overviewRuntime,
     overviewStatus,
     overviewError,
-    datasetName: dataset?.file.originalFileName ?? null,
+    datasetName: dataset?.file.originalFileName ?? datasetName,
     hasDataset: datasetMode,
   });
 

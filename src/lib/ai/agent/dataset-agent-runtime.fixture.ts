@@ -4,7 +4,7 @@ import { getAnalyticsInvestigationToolNames } from "@/lib/ai/agent/investigation
 import { generateDatasetInvestigation } from "@/lib/ai/dataset-investigation-generator";
 import { parseInvestigationResult } from "@/lib/ai/output-schema";
 import { buildFixtureDatasetAnalyticsContext } from "@/lib/analytics/dataset-context/dataset-analytics-context.fixtures";
-import { registerDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { buildDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import type { DatasetAnalyticsSurface } from "@/lib/analytics/dataset-context";
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
 import type { ToolName } from "@/lib/ai/tools/types";
@@ -218,8 +218,8 @@ function createMockDeepSeekFetch(
 
 export async function runDatasetAgentRuntimeFixture() {
   const datasetContext = await buildFixtureDatasetAnalyticsContext();
-  const session = registerDatasetAnalyticsSession(datasetContext);
-  const unavailableEvidenceSession = registerDatasetAnalyticsSession({
+  const session = buildDatasetAnalyticsSession(datasetContext);
+  const unavailableEvidenceSession = buildDatasetAnalyticsSession({
     ...datasetContext,
     retentionEvidence: datasetContext.retentionEvidence
       ? { ...datasetContext.retentionEvidence, comparison: null }

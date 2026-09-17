@@ -10,6 +10,16 @@ import type { AnalyticsInvestigationContext } from "@/lib/analytics/investigatio
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
 import { buildDatasetSignalDiagnosticCaseId } from "@/lib/diagnostics/dataset-diagnostic-case";
 import { buildAnalyticsSignalFingerprint } from "@/lib/investigations/signal-fingerprint";
+import type { OverviewRuntime } from "@/lib/overview/overview-runtime";
+import { getRedisClient } from "@/lib/redis/client";
+import { redisKeys } from "@/lib/redis/keys";
+import {
+  DATASET_MARKER_GRACE_SECONDS,
+  assertPersistedDatasetSessionSize,
+  createDatasetLifetime,
+  toUnixSeconds,
+  type DatasetLifetime,
+} from "@/lib/redis/lifecycle";
 
 import type {
   DatasetAnalyticsContext,
@@ -18,9 +28,6 @@ import type {
 
 export const DATASET_ANALYTICS_SESSION_COOKIE =
   "insightflow_dataset_analytics_session";
-
-const SESSION_TTL_MS = 30 * 60 * 1_000;
-const MAX_SESSION_ENTRIES = 20;
 
 export type DatasetAnalyticsSession = {
   sessionId: string;
@@ -38,41 +45,33 @@ export type DatasetAnalyticsSession = {
   createdAt: number;
 };
 
-declare global {
-  var __insightflowDatasetAnalyticsSessions:
-    | Map<string, DatasetAnalyticsSession>
-    | undefined;
-}
+export type PersistedDatasetSession = DatasetLifetime & {
+  runtimeSessionId: string;
+  datasetId: string;
+  datasetIdentity: string;
+  datasetName: string;
+  analyticsSession: DatasetAnalyticsSession;
+  overviewRuntime: OverviewRuntime;
+};
 
-const sessions =
-  globalThis.__insightflowDatasetAnalyticsSessions ??
-  new Map<string, DatasetAnalyticsSession>();
+type PersistedDatasetMeta = DatasetLifetime & {
+  runtimeSessionId: string;
+  datasetId: string;
+  datasetIdentity: string;
+  datasetName: string;
+};
 
-globalThis.__insightflowDatasetAnalyticsSessions = sessions;
+export type DatasetSessionLookup =
+  | { status: "ready"; session: PersistedDatasetSession }
+  | { status: "expired" }
+  | { status: "temporarily-unavailable" }
+  | { status: "missing-invalid" };
 
 function unique(values: readonly string[]) {
   return [...new Set(values)];
 }
 
-function removeExpiredSessions(now: number) {
-  for (const [sessionId, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      sessions.delete(sessionId);
-    }
-  }
-
-  while (sessions.size >= MAX_SESSION_ENTRIES) {
-    const oldestSessionId = sessions.keys().next().value;
-
-    if (typeof oldestSessionId !== "string") {
-      break;
-    }
-
-    sessions.delete(oldestSessionId);
-  }
-}
-
-export function registerDatasetAnalyticsSession(
+export function buildDatasetAnalyticsSession(
   analyticsContext: DatasetAnalyticsContext,
   options: {
     requestedSessionId?: string;
@@ -148,27 +147,176 @@ export function registerDatasetAnalyticsSession(
     createdAt: now,
   };
 
-  removeExpiredSessions(now);
-  sessions.set(sessionId, session);
-
   return session;
 }
 
-export function getDatasetAnalyticsSession(
-  sessionId: string | undefined,
-): DatasetAnalyticsSession | null {
-  if (!sessionId) {
-    return null;
+export function createPersistedDatasetSession(input: {
+  analyticsSession: DatasetAnalyticsSession;
+  datasetName: string;
+  overviewRuntime: OverviewRuntime;
+  now?: number;
+}): PersistedDatasetSession {
+  const lifetime = createDatasetLifetime(input.now);
+  const document: PersistedDatasetSession = {
+    runtimeSessionId: input.analyticsSession.sessionId,
+    datasetId: input.analyticsSession.datasetId,
+    datasetIdentity: input.analyticsSession.datasetIdentity,
+    datasetName: input.datasetName,
+    analyticsSession: input.analyticsSession,
+    overviewRuntime: input.overviewRuntime,
+    ...lifetime,
+  };
+
+  assertPersistedDatasetSessionSize(document);
+  return document;
+}
+
+export async function persistDatasetSession(
+  document: PersistedDatasetSession,
+) {
+  assertPersistedDatasetSessionSize(document);
+  const redis = getRedisClient();
+  const dataExpiresAt = toUnixSeconds(document.expiresAt);
+  const metadataExpiresAt = dataExpiresAt + DATASET_MARKER_GRACE_SECONDS;
+  const meta: PersistedDatasetMeta = {
+    runtimeSessionId: document.runtimeSessionId,
+    datasetId: document.datasetId,
+    datasetIdentity: document.datasetIdentity,
+    datasetName: document.datasetName,
+    createdAt: document.createdAt,
+    expiresAt: document.expiresAt,
+  };
+
+  await redis
+    .multi()
+    .set(
+      redisKeys.datasetCurrent(document.runtimeSessionId),
+      document.datasetIdentity,
+      { exat: metadataExpiresAt },
+    )
+    .set(
+      redisKeys.datasetMeta(
+        document.runtimeSessionId,
+        document.datasetIdentity,
+      ),
+      meta,
+      { exat: metadataExpiresAt },
+    )
+    .set(
+      redisKeys.datasetSession(
+        document.runtimeSessionId,
+        document.datasetIdentity,
+      ),
+      document,
+      { exat: dataExpiresAt },
+    )
+    .exec();
+}
+
+function isPersistedDatasetMeta(value: unknown): value is PersistedDatasetMeta {
+  if (!value || typeof value !== "object") {
+    return false;
   }
 
-  const session = sessions.get(sessionId);
+  const meta = value as Partial<PersistedDatasetMeta>;
+  return (
+    typeof meta.runtimeSessionId === "string" &&
+    typeof meta.datasetId === "string" &&
+    typeof meta.datasetIdentity === "string" &&
+    typeof meta.datasetName === "string" &&
+    typeof meta.createdAt === "string" &&
+    typeof meta.expiresAt === "string" &&
+    Number.isFinite(Date.parse(meta.createdAt)) &&
+    Number.isFinite(Date.parse(meta.expiresAt))
+  );
+}
 
-  if (!session || Date.now() - session.createdAt > SESSION_TTL_MS) {
-    sessions.delete(sessionId);
-    return null;
+function isPersistedDatasetSession(
+  value: unknown,
+): value is PersistedDatasetSession {
+  if (!isPersistedDatasetMeta(value)) {
+    return false;
   }
 
-  return session;
+  const document = value as Partial<PersistedDatasetSession>;
+  const analyticsSession = document.analyticsSession as
+    | Partial<DatasetAnalyticsSession>
+    | undefined;
+  const overviewRuntime = document.overviewRuntime as
+    | Partial<OverviewRuntime>
+    | undefined;
+  return (
+    Boolean(analyticsSession) &&
+    analyticsSession?.sessionId === document.runtimeSessionId &&
+    analyticsSession?.datasetId === document.datasetId &&
+    analyticsSession?.datasetIdentity === document.datasetIdentity &&
+    overviewRuntime?.version === 1 &&
+    overviewRuntime.source === "dataset"
+  );
+}
+
+export async function lookupDatasetSession(
+  runtimeSessionId: string,
+): Promise<DatasetSessionLookup> {
+  try {
+    const redis = getRedisClient();
+    const datasetIdentity = await redis.get<string>(
+      redisKeys.datasetCurrent(runtimeSessionId),
+    );
+
+    if (!datasetIdentity || typeof datasetIdentity !== "string") {
+      return { status: "missing-invalid" };
+    }
+
+    const [meta, document] = await redis.mget<[
+      PersistedDatasetMeta | null,
+      PersistedDatasetSession | null,
+    ]>(
+      redisKeys.datasetMeta(runtimeSessionId, datasetIdentity),
+      redisKeys.datasetSession(runtimeSessionId, datasetIdentity),
+    );
+
+    if (
+      !isPersistedDatasetMeta(meta) ||
+      meta.runtimeSessionId !== runtimeSessionId ||
+      meta.datasetIdentity !== datasetIdentity
+    ) {
+      return { status: "missing-invalid" };
+    }
+
+    if (Date.parse(meta.expiresAt) <= Date.now()) {
+      return { status: "expired" };
+    }
+
+    if (!document) {
+      return { status: "missing-invalid" };
+    }
+
+    if (
+      !isPersistedDatasetSession(document) ||
+      document.runtimeSessionId !== runtimeSessionId ||
+      document.datasetIdentity !== datasetIdentity ||
+      document.expiresAt !== meta.expiresAt
+    ) {
+      return { status: "missing-invalid" };
+    }
+
+    return { status: "ready", session: document };
+  } catch {
+    return { status: "temporarily-unavailable" };
+  }
+}
+
+export async function getPersistedDatasetSession(
+  runtimeSessionId: string,
+  datasetIdentity: string,
+) {
+  const lookup = await lookupDatasetSession(runtimeSessionId);
+
+  return lookup.status === "ready" &&
+    lookup.session.datasetIdentity === datasetIdentity
+    ? lookup.session
+    : null;
 }
 
 export function selectDatasetDiagnosticCase(

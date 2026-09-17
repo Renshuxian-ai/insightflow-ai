@@ -38,6 +38,10 @@ export type DatasetSemanticReviewStatus =
   | "error";
 
 export type DatasetOverviewStatus = "idle" | "loading" | "ready" | "error";
+export type DatasetSessionStatus =
+  | "ready"
+  | "expired"
+  | "temporarily-unavailable";
 
 export type SemanticReviewDraft = {
   snapshotId: string;
@@ -64,6 +68,8 @@ type DatasetOverviewRequest = {
 type DatasetWorkspaceSession = {
   runtimeSessionId: string;
   datasetMode: boolean;
+  datasetName: string | null;
+  datasetSessionStatus: DatasetSessionStatus | null;
   status: WorkspaceStatus;
   setStatus: Dispatch<SetStateAction<WorkspaceStatus>>;
   dataset: Dataset | null;
@@ -108,6 +114,7 @@ type DatasetWorkspaceSession = {
   ) => Promise<void>;
   retryDatasetOverview: () => void;
   clearDatasetOverview: () => void;
+  resetDatasetSession: () => Promise<void>;
   requestId: SessionRef<number>;
   activeRequest: SessionRef<AbortController | null>;
   semanticRequestId: SessionRef<number>;
@@ -126,6 +133,11 @@ type OverviewApiErrorPayload = {
 type RuntimeSessionPayload = {
   runtimeSessionId?: unknown;
   mode?: unknown;
+  datasetStatus?: unknown;
+  datasetName?: unknown;
+  datasetIdentity?: unknown;
+  overviewRuntime?: unknown;
+  expiresAt?: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -179,8 +191,13 @@ export function DatasetWorkspaceSessionProvider({
   const router = useRouter();
   const [runtimeSessionId, setRuntimeSessionId] = useState<string | null>(null);
   const [datasetMode, setDatasetMode] = useState(false);
+  const [datasetName, setDatasetName] = useState<string | null>(null);
+  const [datasetSessionStatus, setDatasetSessionStatus] =
+    useState<DatasetSessionStatus | null>(null);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [runtimeBootstrapError, setRuntimeBootstrapError] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resettingSession, setResettingSession] = useState(false);
   const [isRuntimeTransitionPending, startRuntimeTransition] = useTransition();
   const [status, setStatus] = useState<WorkspaceStatus>("idle");
   const [dataset, setDataset] = useState<Dataset | null>(null);
@@ -253,9 +270,50 @@ export function DatasetWorkspaceSessionProvider({
           return;
         }
 
+        const restoredDatasetStatus =
+          payload.datasetStatus === "ready" ||
+          payload.datasetStatus === "expired" ||
+          payload.datasetStatus === "temporarily-unavailable"
+            ? payload.datasetStatus
+            : null;
+
+        if (payload.mode === "dataset" && !restoredDatasetStatus) {
+          if (!controller.signal.aborted) {
+            setRuntimeBootstrapError(true);
+          }
+          return;
+        }
+
+        if (
+          payload.mode === "dataset" &&
+          restoredDatasetStatus === "ready" &&
+          (!isOverviewRuntime(payload.overviewRuntime) ||
+            typeof payload.datasetName !== "string")
+        ) {
+          if (!controller.signal.aborted) {
+            setRuntimeBootstrapError(true);
+          }
+          return;
+        }
+
         startRuntimeTransition(() => {
           setRuntimeSessionId(restoredRuntimeSessionId);
           setDatasetMode(payload.mode === "dataset");
+          setDatasetSessionStatus(restoredDatasetStatus);
+          setDatasetName(
+            typeof payload.datasetName === "string"
+              ? payload.datasetName
+              : null,
+          );
+          setOverviewRuntime(
+            restoredDatasetStatus === "ready" &&
+              isOverviewRuntime(payload.overviewRuntime)
+              ? payload.overviewRuntime
+              : null,
+          );
+          setOverviewStatus(
+            restoredDatasetStatus === "ready" ? "ready" : "idle",
+          );
           setRuntimeReady(true);
           router.refresh();
         });
@@ -340,6 +398,8 @@ export function DatasetWorkspaceSessionProvider({
         setOverviewStatus("ready");
         setOverviewError(null);
         setDatasetMode(true);
+        setDatasetName(overviewRequest.sourceFile.name);
+        setDatasetSessionStatus("ready");
         router.refresh();
       } catch (error) {
         if (
@@ -377,10 +437,60 @@ export function DatasetWorkspaceSessionProvider({
     });
   }, [dataset, requestDatasetOverview, semanticSchema, sourceFile]);
 
+  const resetDatasetSession = useCallback(async () => {
+    setResettingSession(true);
+    setResetError(null);
+
+    try {
+      const response = await fetch("/api/runtime-session/reset", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("The Dataset session could not be reset.");
+      }
+
+      activeRequest.current?.abort();
+      activeSemanticRequest.current?.abort();
+      activeOverviewRequest.current?.abort();
+      reviewDrafts.current.clear();
+      setRuntimeSessionId(crypto.randomUUID());
+      setDatasetMode(false);
+      setDatasetName(null);
+      setDatasetSessionStatus(null);
+      setStatus("idle");
+      setDataset(null);
+      setSourceFile(null);
+      setSourceSnapshotId(null);
+      setError(null);
+      setSemanticStatus("idle");
+      setSemanticSchema(null);
+      setAutoUsePolicy(null);
+      setFieldEvidence([]);
+      setSemanticInferenceMode(null);
+      setDatasetContext("");
+      setSemanticError(null);
+      setSemanticSessionMessage(null);
+      setCurrentReviewKey(null);
+      setSheetReviewLabels({});
+      setOverviewRuntime(null);
+      setOverviewStatus("idle");
+      setOverviewError(null);
+      router.replace("/");
+      router.refresh();
+    } catch {
+      setResetError("The Dataset session could not be reset. Please try again.");
+    } finally {
+      setResettingSession(false);
+    }
+  }, [router]);
+
   const value = useMemo<DatasetWorkspaceSession>(
     () => ({
       runtimeSessionId: runtimeSessionId ?? "",
       datasetMode,
+      datasetName,
+      datasetSessionStatus,
       status,
       setStatus,
       dataset,
@@ -417,6 +527,7 @@ export function DatasetWorkspaceSessionProvider({
       requestDatasetOverview,
       retryDatasetOverview,
       clearDatasetOverview,
+      resetDatasetSession,
       requestId,
       activeRequest,
       semanticRequestId,
@@ -431,6 +542,8 @@ export function DatasetWorkspaceSessionProvider({
       currentReviewKey,
       dataset,
       datasetMode,
+      datasetName,
+      datasetSessionStatus,
       overviewRuntime,
       datasetContext,
       error,
@@ -447,6 +560,7 @@ export function DatasetWorkspaceSessionProvider({
       overviewError,
       overviewStatus,
       requestDatasetOverview,
+      resetDatasetSession,
       retryDatasetOverview,
       runtimeSessionId,
     ],
@@ -473,6 +587,55 @@ export function DatasetWorkspaceSessionProvider({
         <p className="text-sm font-medium text-[#7e8798]">
           Preparing workspace...
         </p>
+      </div>
+    );
+  }
+
+  if (datasetMode && datasetSessionStatus === "expired") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6 text-center">
+        <div className="max-w-md rounded-xl border border-[#e3e7ee] bg-white px-8 py-9 shadow-sm">
+          <h1 className="text-lg font-semibold text-[#263247]">
+            Dataset session expired
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#6f7a8e]">
+            Uploaded Dataset sessions are kept temporarily.
+          </p>
+          <button
+            type="button"
+            className="mt-6 inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#294bd1] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={resettingSession}
+            onClick={() => void resetDatasetSession()}
+          >
+            {resettingSession ? "Starting..." : "Start new session"}
+          </button>
+          {resetError ? (
+            <p className="mt-3 text-xs text-[#b94a48]">{resetError}</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (datasetMode && datasetSessionStatus === "temporarily-unavailable") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6 text-center">
+        <div className="max-w-md rounded-xl border border-[#e3e7ee] bg-white px-8 py-9 shadow-sm">
+          <h1 className="text-lg font-semibold text-[#263247]">
+            Dataset temporarily unavailable
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#6f7a8e]">
+            Shared session storage could not be reached. Dataset Mode remains
+            active and no Demo data will be shown.
+          </p>
+          <button
+            type="button"
+            className="mt-6 inline-flex h-9 items-center rounded-lg border border-[#d8dde7] bg-white px-4 text-sm font-semibold text-[#465268] transition-colors hover:bg-[#f8f9fb]"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

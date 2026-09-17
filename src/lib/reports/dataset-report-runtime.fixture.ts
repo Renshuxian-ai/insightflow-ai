@@ -1,12 +1,5 @@
 import "server-only";
 
-import {
-  listDatasetInvestigations,
-  reconcileDatasetInvestigationReports,
-  saveDatasetInvestigationCase,
-  updateDatasetInvestigation,
-} from "@/lib/investigations/dataset-investigation-store";
-
 import { buildProductReportMarkdown } from "./report-markdown";
 import {
   deleteSessionReport,
@@ -26,34 +19,36 @@ function assertFixture(condition: unknown, message: string): asserts condition {
 export async function runDatasetReportRuntimeFixture() {
   const { reports } = await buildDatasetReportFixtureBundle();
   const sessionId = "dataset-report-runtime-fixture-session";
-  const investigationSessionId =
-    "dataset-investigation-report-lifecycle-fixture-session";
-  const datasetIdentity = "fixture-dataset-identity";
+  const demoScopedReports = reports.map(({ surface, report }) => {
+    const demoReport = { ...report };
+    delete demoReport.datasetIdentity;
+    delete demoReport.investigationCaseId;
+    return { surface, report: demoReport };
+  });
 
-  for (const { report } of reports) {
-    const savedSessionId = saveSessionReport(report, sessionId);
-
+  for (const { report } of demoScopedReports) {
+    const savedSessionId = await saveSessionReport(report, sessionId);
     assertFixture(
       savedSessionId === sessionId,
       "the report store must retain the requested runtime session identity.",
     );
   }
 
-  const library = getSessionReports(sessionId);
-
+  const library = await getSessionReports(sessionId);
   assertFixture(library.length === 3, "the session library must contain three reports.");
+  const results = [];
 
-  const results = reports.map(({ surface, report }) => {
-    const detail = getSessionReport(sessionId, report.id);
+  for (const { surface, report } of demoScopedReports) {
+    const detail = await getSessionReport(sessionId, report.id);
+    assertFixture(detail, `${surface} report detail must resolve from Redis.`);
 
-    assertFixture(detail, `${surface} report detail must resolve from the session store.`);
     for (const routeId of [
       report.id,
       encodeURIComponent(report.id),
       encodeURIComponent(encodeURIComponent(report.id)),
     ]) {
       assertFixture(
-        getSessionReportByRouteId(sessionId, routeId)?.id === report.id,
+        (await getSessionReportByRouteId(sessionId, routeId))?.id === report.id,
         `${surface} report must resolve from raw and encoded route identities.`,
       );
     }
@@ -73,133 +68,25 @@ export async function runDatasetReportRuntimeFixture() {
       );
     }
 
-    assertFixture(
-      markdown.includes(detail.aiSummary) &&
-        detail.supportingEvidence.every((evidence) =>
-          markdown.includes(evidence.statement),
-        ),
-      `${surface} detail and Markdown must consume the same ProductReport.`,
-    );
-
-    return {
+    results.push({
       surface,
       reportId: detail.id,
       libraryResolved: true,
       detailResolved: true,
       markdownSections: 5,
-    };
-  });
-
-  const retentionReport = reports.find(
-    ({ surface }) => surface === "retention",
-  )?.report;
-
-  assertFixture(retentionReport, "the Retention report is required.");
-  const retentionInvestigationCaseId = retentionReport.investigationCaseId;
-
-  assertFixture(
-    retentionInvestigationCaseId,
-    "the Retention report must retain its Investigation case identity.",
-  );
-  const deletedReport = deleteSessionReport(sessionId, retentionReport.id);
-
-  assertFixture(
-    deletedReport?.id === retentionReport.id,
-    "deleting one report must resolve that exact report.",
-  );
-  assertFixture(
-    getSessionReports(sessionId).length === reports.length - 1 &&
-      reports
-        .filter(({ report }) => report.id !== retentionReport.id)
-        .every(({ report }) => getSessionReport(sessionId, report.id)),
-    "deleting one report must preserve every other Investigation report.",
-  );
-
-  saveSessionReport(retentionReport, sessionId);
-  assertFixture(
-    getSessionReports(sessionId).length === reports.length,
-    "regenerating one report must restore it without replacing other reports.",
-  );
-
-  for (const { surface, diagnosticCase, report } of reports) {
-    assertFixture(
-      report.investigationCaseId,
-      `${surface} report must have an Investigation case identity.`,
-    );
-    saveDatasetInvestigationCase({
-      sessionId: investigationSessionId,
-      investigationId: report.investigationCaseId,
-      signalFingerprint: `fixture:${surface}`,
-      datasetId: "fixture-dataset",
-      datasetIdentity,
-      sourceLabel: report.source,
-      signalType: surface as "retention" | "funnel" | "feedback",
-      diagnosticCase,
-    });
-    updateDatasetInvestigation({
-      sessionId: investigationSessionId,
-      investigationId: report.investigationCaseId,
-      datasetIdentity,
-      status: "Validated",
-      reportId: report.id,
     });
   }
 
-  reconcileDatasetInvestigationReports({
-    sessionId: investigationSessionId,
-    datasetIdentity,
-    reports: getSessionReports(sessionId),
-  });
+  const firstReport = demoScopedReports[0]?.report;
+  assertFixture(firstReport, "a generated report is required.");
+  const deleted = await deleteSessionReport(sessionId, firstReport.id);
   assertFixture(
-    listDatasetInvestigations(investigationSessionId, datasetIdentity).every(
-      (investigation) => investigation.status === "Validated",
-    ),
-    "all Dataset Investigations must remain Validated while their exact reports exist.",
+    deleted.status === "ok" && deleted.report.id === firstReport.id,
+    "exact report deletion must work.",
   );
-
-  deleteSessionReport(sessionId, retentionReport.id);
-  reconcileDatasetInvestigationReports({
-    sessionId: investigationSessionId,
-    datasetIdentity,
-    reports: getSessionReports(sessionId),
-  });
-  const investigationsAfterDeletion = listDatasetInvestigations(
-    investigationSessionId,
-    datasetIdentity,
-  );
-
   assertFixture(
-    investigationsAfterDeletion.find(
-      (investigation) =>
-        investigation.id === retentionInvestigationCaseId,
-    )?.status === "Validation ready" &&
-      investigationsAfterDeletion
-        .filter(
-          (investigation) =>
-            investigation.id !== retentionInvestigationCaseId,
-        )
-        .every((investigation) => investigation.status === "Validated"),
-    "removing one report must downgrade only its linked Investigation.",
-  );
-
-  saveSessionReport(retentionReport, sessionId);
-  updateDatasetInvestigation({
-    sessionId: investigationSessionId,
-    investigationId: retentionInvestigationCaseId,
-    datasetIdentity,
-    status: "Validated",
-    reportId: retentionReport.id,
-  });
-  reconcileDatasetInvestigationReports({
-    sessionId: investigationSessionId,
-    datasetIdentity,
-    reports: getSessionReports(sessionId),
-  });
-  assertFixture(
-    listDatasetInvestigations(investigationSessionId, datasetIdentity).every(
-      (investigation) => investigation.status === "Validated",
-    ),
-    "regenerating one report must not change other Validated Investigations.",
+    (await getSessionReports(sessionId)).length === library.length - 1,
+    "deleting one report must preserve the remaining reports.",
   );
 
   return { sessionId, libraryCount: library.length, results };

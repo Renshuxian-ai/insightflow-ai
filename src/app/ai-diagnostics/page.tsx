@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 import { DemoDatasetDiagnosticsRoute } from "@/components/datasets/demo-dataset-diagnostics-route";
 import { AppShell } from "@/components/layout/app-shell";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -83,14 +83,16 @@ export default async function AiDiagnosticsRootRoute() {
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
 
   return (
     <AppShell activeNavigation="ai-diagnostics">
       {datasetMode ? (
-        <DatasetDiagnosticsEmptyState unavailable={!datasetSession} />
+        <DatasetDiagnosticsEmptyState
+          unavailable={datasetLookup?.status !== "ready"}
+        />
       ) : (
         <DemoDatasetDiagnosticsRoute returnTarget={overviewReturnTarget} />
       )}

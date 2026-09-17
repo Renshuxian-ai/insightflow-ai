@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -23,7 +23,6 @@ import {
   updateDatasetInvestigation,
 } from "@/lib/investigations/dataset-investigation-store";
 import { mockInvestigations } from "@/lib/investigations/mock-investigations";
-import { deleteSessionReport } from "@/lib/reports/session-report-store";
 import { getRuntimeSessionId } from "@/lib/runtime-session";
 
 type JsonRecord = Record<string, unknown>;
@@ -62,20 +61,28 @@ export async function GET() {
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
+  const datasetSession =
+    datasetLookup?.status === "ready"
+      ? datasetLookup.session.analyticsSession
+      : null;
+  let investigations = datasetMode ? [] : mockInvestigations;
+
+  if (datasetSession && datasetSessionId) {
+    try {
+      investigations = await listDatasetInvestigations(
+        datasetSessionId,
+        datasetSession.datasetIdentity,
+      );
+    } catch {
+      investigations = [];
+    }
+  }
 
   return Response.json({
-    investigations:
-      datasetMode
-        ? datasetSession && datasetSessionId
-          ? listDatasetInvestigations(
-              datasetSessionId,
-              datasetSession.datasetIdentity,
-            )
-          : []
-        : mockInvestigations,
+    investigations,
     mode: datasetMode ? "dataset" : "demo",
     datasetUnavailable: datasetMode && !datasetSession,
   });
@@ -186,19 +193,48 @@ export async function POST(request: Request) {
         );
       }
 
-      const datasetSession = datasetMode && datasetModeSessionId
-        ? getDatasetAnalyticsSession(datasetModeSessionId)
+      const datasetLookup = datasetMode && datasetModeSessionId
+        ? await lookupDatasetSession(datasetModeSessionId)
         : null;
-      const persistedInvestigation =
-        datasetSession &&
-        datasetSessionId &&
-        typeof investigationCaseId === "string"
-          ? getDatasetInvestigation(
-              datasetSessionId,
-              investigationCaseId,
-              datasetSession.datasetIdentity,
-            )
+      const datasetSession =
+        datasetLookup?.status === "ready"
+          ? datasetLookup.session.analyticsSession
           : null;
+
+      if (datasetMode && datasetLookup?.status !== "ready") {
+        return Response.json(
+          {
+            error:
+              datasetLookup?.status !== "expired"
+                ? "The Dataset session is temporarily unavailable."
+                : "The Dataset session has expired.",
+          },
+          {
+            status:
+              datasetLookup?.status === "expired" ? 409 : 503,
+          },
+        );
+      }
+
+      let persistedInvestigation;
+
+      try {
+        persistedInvestigation =
+          datasetSession &&
+          datasetSessionId &&
+          typeof investigationCaseId === "string"
+            ? await getDatasetInvestigation(
+                datasetSessionId,
+                investigationCaseId,
+                datasetSession.datasetIdentity,
+              )
+            : null;
+      } catch {
+        return Response.json(
+          { error: "The Dataset investigation store is temporarily unavailable." },
+          { status: 503 },
+        );
+      }
 
       if (
         datasetMode &&
@@ -232,18 +268,40 @@ export async function POST(request: Request) {
         datasetSessionId &&
         persistedInvestigation
       ) {
-        updateDatasetInvestigation({
-          sessionId: datasetSessionId,
-          investigationId: persistedInvestigation.id,
-          datasetIdentity: datasetSession.datasetIdentity,
-          status: "Validation ready",
-          generation: {
-            result: generation.result,
-            trace: generation.trace,
-            usedModelId: generation.usedModelId,
-            createdAt: new Date().toISOString(),
-          },
-        });
+        let persistenceResult;
+
+        try {
+          persistenceResult = await updateDatasetInvestigation({
+            sessionId: datasetSessionId,
+            investigationId: persistedInvestigation.id,
+            datasetIdentity: datasetSession.datasetIdentity,
+            generation: {
+              result: generation.result,
+              trace: generation.trace,
+              usedModelId: generation.usedModelId,
+              createdAt: new Date().toISOString(),
+            },
+          });
+        } catch {
+          return Response.json(
+            { error: "The Dataset investigation store is temporarily unavailable." },
+            { status: 503 },
+          );
+        }
+
+        if (persistenceResult.status === "temporarily-unavailable") {
+          return Response.json(
+            { error: "The Dataset investigation store is temporarily unavailable." },
+            { status: 503 },
+          );
+        }
+
+        if (persistenceResult.status !== "ok") {
+          return Response.json(
+            { error: "The Dataset investigation lifecycle changed before the result could be saved." },
+            { status: 409 },
+          );
+        }
       }
 
       return Response.json(generation);
@@ -306,33 +364,72 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const datasetSession = getDatasetAnalyticsSession(runtimeSessionId);
+  const cookieStore = await cookies();
+  const datasetModeSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
+  );
 
-  if (!datasetSession) {
+  if (datasetModeSessionId !== runtimeSessionId) {
     return Response.json(
-      { error: "The Dataset investigation session is no longer available." },
+      { error: "A confirmed Dataset session is required." },
       { status: 409 },
     );
   }
 
-  const deleted = deleteDatasetInvestigation({
-    sessionId: runtimeSessionId,
-    investigationId: body.investigationCaseId,
-    datasetIdentity: datasetSession.datasetIdentity,
-  });
+  const datasetLookup = await lookupDatasetSession(runtimeSessionId);
+  const datasetSession =
+    datasetLookup.status === "ready"
+      ? datasetLookup.session.analyticsSession
+      : null;
 
-  if (!deleted) {
+  if (!datasetSession) {
     return Response.json(
-      { error: "Investigation not found." },
-      { status: 404 },
+      {
+        error:
+          datasetLookup.status !== "expired"
+            ? "The Dataset investigation store is temporarily unavailable."
+            : "The Dataset investigation session has expired.",
+      },
+      {
+        status:
+          datasetLookup.status === "expired" ? 409 : 503,
+      },
     );
   }
 
-  if (deleted.reportId) {
-    deleteSessionReport(
-      runtimeSessionId,
-      deleted.reportId,
-      datasetSession.datasetIdentity,
+  let deleted;
+
+  try {
+    deleted = await deleteDatasetInvestigation({
+      sessionId: runtimeSessionId,
+      investigationId: body.investigationCaseId,
+      datasetIdentity: datasetSession.datasetIdentity,
+    });
+  } catch {
+    return Response.json(
+      { error: "The Dataset investigation store is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+
+  if (deleted.status === "temporarily-unavailable") {
+    return Response.json(
+      { error: "The Dataset investigation store is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+
+  if (deleted.status === "conflict" || deleted.status === "expired") {
+    return Response.json(
+      { error: "The Dataset investigation lifecycle changed before deletion." },
+      { status: 409 },
+    );
+  }
+
+  if (deleted.status === "not-found") {
+    return Response.json(
+      { error: "Investigation not found." },
+      { status: 404 },
     );
   }
 

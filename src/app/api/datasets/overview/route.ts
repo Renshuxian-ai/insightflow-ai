@@ -4,7 +4,9 @@ import { buildDatasetAnalyticsContext } from "@/lib/analytics/dataset-context";
 import { createDatasetContentIdentity } from "@/lib/analytics/dataset-context/dataset-identity";
 import {
   DATASET_ANALYTICS_SESSION_COOKIE,
-  registerDatasetAnalyticsSession,
+  buildDatasetAnalyticsSession,
+  createPersistedDatasetSession,
+  persistDatasetSession,
 } from "@/lib/analytics/dataset-context/session-store";
 import { DATASET_LIMITS } from "@/lib/datasets/constants";
 import { DATASET_MODE_COOKIE } from "@/lib/datasets/dataset-mode";
@@ -24,6 +26,11 @@ import { parseDatasetForAnalytics } from "@/lib/datasets/server/parse-dataset";
 import type { ParsedDataset } from "@/lib/datasets/server/parsers/types";
 import { buildOverviewActivityEvidence } from "@/lib/overview/overview-activity-builder";
 import { buildOverviewRuntime } from "@/lib/overview/build-overview-runtime";
+import { RedisConfigurationError } from "@/lib/redis/client";
+import {
+  DATASET_MARKER_TTL_SECONDS,
+  DatasetPersistenceSizeError,
+} from "@/lib/redis/lifecycle";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -32,6 +39,7 @@ type OverviewApiErrorCode =
   | "INVALID_SEMANTIC_SCHEMA"
   | "SEMANTIC_SCHEMA_NOT_CONFIRMED"
   | "DATASET_PARSE_FAILED"
+  | "DATASET_PERSISTENCE_FAILED"
   | "OVERVIEW_ANALYTICS_FAILED";
 
 const MAX_SEMANTIC_SCHEMA_BYTES = 512 * 1024;
@@ -368,6 +376,8 @@ export async function POST(request: Request) {
     );
   }
 
+  let persistenceStarted = false;
+
   try {
     const formData = await request.formData();
     const files = formData.getAll("file");
@@ -422,27 +432,37 @@ export async function POST(request: Request) {
       analyticsContext,
       activityEvidence,
     });
-    const cookieStore = await cookies();
-    const session = registerDatasetAnalyticsSession(
+    const analyticsSession = buildDatasetAnalyticsSession(
       analyticsContext,
       {
         requestedSessionId: runtimeSessionId,
         datasetIdentity,
       },
     );
-
-    cookieStore.set(DATASET_ANALYTICS_SESSION_COOKIE, session.sessionId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 30 * 60,
+    persistenceStarted = true;
+    const persistedSession = createPersistedDatasetSession({
+      analyticsSession,
+      datasetName: files[0].name,
+      overviewRuntime,
     });
-    cookieStore.set(DATASET_MODE_COOKIE, session.sessionId, {
+
+    await persistDatasetSession(persistedSession);
+
+    const cookieStore = await cookies();
+
+    cookieStore.set(DATASET_ANALYTICS_SESSION_COOKIE, analyticsSession.sessionId, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
+      maxAge: DATASET_MARKER_TTL_SECONDS,
+    });
+    cookieStore.set(DATASET_MODE_COOKIE, analyticsSession.sessionId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: DATASET_MARKER_TTL_SECONDS,
     });
 
     return jsonResponse(overviewRuntime);
@@ -455,10 +475,32 @@ export async function POST(request: Request) {
       return datasetErrorResponse(error);
     }
 
-    return errorResponse(
-      "OVERVIEW_ANALYTICS_FAILED",
-      "Dataset analytics could not be calculated.",
-      500,
-    );
+    if (error instanceof DatasetPersistenceSizeError) {
+      return errorResponse(
+        "DATASET_PERSISTENCE_FAILED",
+        "The derived Dataset session is too large for temporary storage. Reduce the Dataset scope and try again.",
+        413,
+      );
+    }
+
+    if (error instanceof RedisConfigurationError) {
+      return errorResponse(
+        "DATASET_PERSISTENCE_FAILED",
+        "Dataset sessions are temporarily unavailable because shared storage is not configured.",
+        503,
+      );
+    }
+
+    return persistenceStarted
+      ? errorResponse(
+          "DATASET_PERSISTENCE_FAILED",
+          "Dataset analytics were calculated but the session could not be saved. Please try again.",
+          503,
+        )
+      : errorResponse(
+          "OVERVIEW_ANALYTICS_FAILED",
+          "Dataset analytics could not be calculated.",
+          500,
+        );
   }
 }

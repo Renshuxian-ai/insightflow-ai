@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { parseAnalyticsInvestigationContext } from "@/lib/analytics/analytics-context-parser";
 import { createAnalyticsDiagnosticCase } from "@/lib/analytics/analytics-diagnostic-adapter";
 import { ANALYTICS_INVESTIGATION_CONTEXT_QUERY_PARAM } from "@/lib/analytics/investigation-context";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   buildDatasetSignalDiagnosticCaseId,
 } from "@/lib/diagnostics/dataset-diagnostic-case";
@@ -19,7 +19,7 @@ import {
   getDatasetModeRuntimeSessionId,
 } from "@/lib/datasets/dataset-mode";
 import {
-  getLatestDatasetInvestigationByFingerprint,
+  getDatasetInvestigationByFingerprint,
   saveDatasetInvestigationCase,
 } from "@/lib/investigations/dataset-investigation-store";
 import { buildAnalyticsSignalFingerprint } from "@/lib/investigations/signal-fingerprint";
@@ -74,12 +74,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const datasetSession = getDatasetAnalyticsSession(datasetSessionId);
+  const datasetLookup = await lookupDatasetSession(datasetSessionId);
+  const datasetSession =
+    datasetLookup.status === "ready"
+      ? datasetLookup.session.analyticsSession
+      : null;
 
   if (!datasetSession) {
     return Response.json(
-      { error: "The Dataset session is temporarily unavailable." },
-      { status: 409 },
+      {
+        error:
+          datasetLookup.status === "expired"
+            ? "The Dataset session has expired."
+            : "The Dataset session is temporarily unavailable.",
+      },
+      {
+        status:
+          datasetLookup.status === "expired" ? 409 : 503,
+      },
     );
   }
 
@@ -128,28 +140,57 @@ export async function POST(request: Request) {
   }
 
   const startNewRun = destination.searchParams.get("investigationRun") === "new";
-  const existingInvestigation = startNewRun
-    ? null
-    : getLatestDatasetInvestigationByFingerprint(
-        datasetSessionId,
-        datasetSession.datasetIdentity,
+  let existingInvestigation;
+  let investigation;
+
+  try {
+    existingInvestigation = startNewRun
+      ? null
+      : await getDatasetInvestigationByFingerprint(
+          datasetSessionId,
+          datasetSession.datasetIdentity,
+          signalFingerprint,
+        );
+    const investigationId = startNewRun
+      ? `${signalFingerprint}:run:${randomUUID().slice(0, 8)}`
+      : signalFingerprint;
+    if (existingInvestigation) {
+      investigation = existingInvestigation;
+    } else {
+      const saved = await saveDatasetInvestigationCase({
+        sessionId: datasetSessionId,
+        investigationId,
         signalFingerprint,
-      );
-  const investigationId = startNewRun
-    ? `${signalFingerprint}:run:${randomUUID().slice(0, 8)}`
-    : signalFingerprint;
-  const investigation =
-    existingInvestigation ??
-    saveDatasetInvestigationCase({
-      sessionId: datasetSessionId,
-      investigationId,
-      signalFingerprint,
-      datasetId: datasetSession.datasetId,
-      datasetIdentity: datasetSession.datasetIdentity,
-      sourceLabel: getInvestigationSourceLabel(analyticsContext.surface),
-      signalType: analyticsContext.surface,
-      diagnosticCase,
-    });
+        datasetId: datasetSession.datasetId,
+        datasetIdentity: datasetSession.datasetIdentity,
+        sourceLabel: getInvestigationSourceLabel(analyticsContext.surface),
+        signalType: analyticsContext.surface,
+        diagnosticCase,
+      });
+
+      if (saved.status === "temporarily-unavailable") {
+        return Response.json(
+          { error: "The Dataset investigation store is temporarily unavailable." },
+          { status: 503 },
+        );
+      }
+
+      if (saved.status !== "ok") {
+        return Response.json(
+          { error: "The Dataset signal is no longer available." },
+          { status: 409 },
+        );
+      }
+
+      investigation = saved.value;
+      existingInvestigation = saved.created ? null : saved.value;
+    }
+  } catch {
+    return Response.json(
+      { error: "The Dataset investigation store is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
   const returnTarget = getDiagnosticReturnTarget(
     destination.searchParams.get(DIAGNOSTIC_RETURN_TO_QUERY_PARAM) ?? undefined,
   );

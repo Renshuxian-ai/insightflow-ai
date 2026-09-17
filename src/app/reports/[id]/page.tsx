@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { ReportPage } from "@/components/reports/report-page";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -29,21 +29,27 @@ export default async function ReportRoute({ params }: ReportRouteProps) {
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
-  const sessionReport = datasetMode
-    ? datasetSession && datasetSessionId
-      ? getSessionReportByRouteId(
-          datasetSessionId,
+  let sessionReport = null;
+
+  try {
+    sessionReport = datasetMode
+      ? datasetLookup?.status === "ready" && datasetSessionId
+        ? await getSessionReportByRouteId(
+            datasetSessionId,
+            id,
+            datasetLookup.session.datasetIdentity,
+          )
+        : null
+      : await getSessionReportByRouteId(
+          cookieStore.get(REPORT_SESSION_COOKIE)?.value,
           id,
-          datasetSession.datasetIdentity,
-        )
-      : null
-    : getSessionReportByRouteId(
-        cookieStore.get(REPORT_SESSION_COOKIE)?.value,
-        id,
-      );
+        );
+  } catch {
+    sessionReport = null;
+  }
   const report = sessionReport ?? (datasetMode ? null : getMockReport(id));
 
   if (!report) {

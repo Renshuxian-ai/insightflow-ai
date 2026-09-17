@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { OverviewPage } from "@/components/overview/overview-page";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -14,16 +14,25 @@ export default async function Home() {
   const datasetSessionId = getDatasetModeRuntimeSessionId(
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
-  const recentInvestigations =
-    datasetSessionId && datasetSession
-      ? listDatasetInvestigations(
+  let recentInvestigations: Awaited<
+    ReturnType<typeof listDatasetInvestigations>
+  > = [];
+
+  if (datasetSessionId && datasetLookup?.status === "ready") {
+    try {
+      recentInvestigations = (
+        await listDatasetInvestigations(
           datasetSessionId,
-          datasetSession.datasetIdentity,
-        ).slice(0, 3)
-      : [];
+          datasetLookup.session.datasetIdentity,
+        )
+      ).slice(0, 3);
+    } catch {
+      recentInvestigations = [];
+    }
+  }
 
   return (
     <AppShell>

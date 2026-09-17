@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { InvestigationsPage } from "@/components/investigations/investigations-page";
 import { AppShell } from "@/components/layout/app-shell";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -16,25 +16,27 @@ export default async function InvestigationsRoute() {
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
+  let investigations = datasetMode ? [] : mockInvestigations;
 
-  const investigations =
-    datasetMode
-      ? datasetSessionId && datasetSession
-        ? listDatasetInvestigations(
-            datasetSessionId,
-            datasetSession.datasetIdentity,
-          )
-        : []
-      : mockInvestigations;
+  if (datasetSessionId && datasetLookup?.status === "ready") {
+    try {
+      investigations = await listDatasetInvestigations(
+        datasetSessionId,
+        datasetLookup.session.datasetIdentity,
+      );
+    } catch {
+      investigations = [];
+    }
+  }
 
   return (
     <AppShell activeNavigation="investigations">
       <InvestigationsPage
         investigations={investigations}
-        canDelete={datasetMode && Boolean(datasetSession)}
+        canDelete={datasetMode && datasetLookup?.status === "ready"}
       />
     </AppShell>
   );

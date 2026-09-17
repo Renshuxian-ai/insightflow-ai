@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { ReportsPage } from "@/components/reports/reports-page";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -19,25 +19,32 @@ export default async function ReportsRoute() {
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
-  const demoSessionReports = datasetMode
-    ? []
-    : getSessionReports(cookieStore.get(REPORT_SESSION_COOKIE)?.value);
-  const reports = datasetMode
-    ? datasetSession && datasetSessionId
-      ? getSessionReports(datasetSessionId, datasetSession.datasetIdentity)
-      : []
-    : demoSessionReports.length > 0
-      ? demoSessionReports
-      : mockReports;
+  let reports = datasetMode ? [] : mockReports;
+
+  try {
+    if (datasetMode && datasetSessionId && datasetLookup?.status === "ready") {
+      reports = await getSessionReports(
+        datasetSessionId,
+        datasetLookup.session.datasetIdentity,
+      );
+    } else if (!datasetMode) {
+      const demoSessionReports = await getSessionReports(
+        cookieStore.get(REPORT_SESSION_COOKIE)?.value,
+      );
+      reports = demoSessionReports.length > 0 ? demoSessionReports : mockReports;
+    }
+  } catch {
+    reports = datasetMode ? [] : mockReports;
+  }
 
   return (
     <AppShell activeNavigation="reports">
       <ReportsPage
         reports={reports}
-        canDelete={datasetMode && Boolean(datasetSession)}
+        canDelete={datasetMode && datasetLookup?.status === "ready"}
       />
     </AppShell>
   );

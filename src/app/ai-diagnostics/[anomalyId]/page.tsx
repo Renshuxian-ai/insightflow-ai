@@ -19,7 +19,7 @@ import {
   getDiagnosticReturnTarget,
   withDiagnosticReturnTo,
 } from "@/lib/diagnostics/diagnostic-navigation";
-import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
+import { lookupDatasetSession } from "@/lib/analytics/dataset-context/session-store";
 import {
   DATASET_MODE_COOKIE,
   getDatasetModeRuntimeSessionId,
@@ -60,6 +60,22 @@ function DatasetInvestigationUnavailable() {
   );
 }
 
+async function readDatasetInvestigation(
+  sessionId: string,
+  routeId: string,
+  datasetIdentity: string,
+) {
+  try {
+    return await getDatasetInvestigationByRouteId(
+      sessionId,
+      routeId,
+      datasetIdentity,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function AiDiagnosticsRoute({
   params,
   searchParams,
@@ -70,9 +86,13 @@ export default async function AiDiagnosticsRoute({
     cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
   const datasetMode = Boolean(datasetSessionId);
-  const datasetSession = datasetSessionId
-    ? getDatasetAnalyticsSession(datasetSessionId)
+  const datasetLookup = datasetSessionId
+    ? await lookupDatasetSession(datasetSessionId)
     : null;
+  const datasetSession =
+    datasetLookup?.status === "ready"
+      ? datasetLookup.session.analyticsSession
+      : null;
   const analyticsContext = parseAnalyticsInvestigationContext(
     query[ANALYTICS_INVESTIGATION_CONTEXT_QUERY_PARAM],
   );
@@ -128,12 +148,21 @@ export default async function AiDiagnosticsRoute({
 
     const existingInvestigation =
       datasetMode && datasetSessionId && datasetSession
-        ? getDatasetInvestigationByRouteId(
+        ? await readDatasetInvestigation(
             datasetSessionId,
             anomalyId,
             datasetSession.datasetIdentity,
           )
         : null;
+
+    if (existingInvestigation === undefined) {
+      return (
+        <AppShell activeNavigation="ai-diagnostics">
+          <DatasetInvestigationUnavailable />
+        </AppShell>
+      );
+    }
+
     const persistedInvestigation = existingInvestigation;
 
     if (datasetMode && !persistedInvestigation) {
@@ -191,11 +220,19 @@ export default async function AiDiagnosticsRoute({
   }
 
   if (datasetSessionId && datasetSession) {
-    const persistedInvestigation = getDatasetInvestigationByRouteId(
+    const persistedInvestigation = await readDatasetInvestigation(
       datasetSessionId,
       anomalyId,
       datasetSession.datasetIdentity,
     );
+
+    if (persistedInvestigation === undefined) {
+      return (
+        <AppShell activeNavigation="ai-diagnostics">
+          <DatasetInvestigationUnavailable />
+        </AppShell>
+      );
+    }
 
     if (persistedInvestigation) {
       return (
