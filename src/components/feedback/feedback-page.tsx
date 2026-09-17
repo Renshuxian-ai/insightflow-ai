@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import { KpiCard } from "@/components/overview/kpi-card";
 import { ANALYTICS_DIAGNOSTIC_HREF } from "@/lib/analytics/demo-analytics";
 import { buildFeedbackInvestigationContext } from "@/lib/analytics/feedback-investigation-adapter";
@@ -140,13 +140,13 @@ function TopicDetail({
             Evidence and context for {topic.title}
           </p>
         </div>
-        <Link
+        <InvestigationLaunchLink
           href={investigationHref}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#3559e8] px-3.5 text-xs font-semibold text-white transition-colors hover:bg-[#2446cb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3559e8]/30"
         >
           Investigate
           <ArrowIcon />
-        </Link>
+        </InvestigationLaunchLink>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[#e7eaf0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)]">

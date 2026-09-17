@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import Link from "next/link";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import {
   ANALYTICS_DIAGNOSTIC_HREF,
   type DemoAnalyticsResult,
@@ -441,12 +441,12 @@ export function FunnelsPage({ analytics }: { analytics: DemoAnalyticsResult }) {
                 </p>
               </div>
               {diagnosticHref ? (
-                <Link
+                <InvestigationLaunchLink
                   href={diagnosticHref}
                   className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#2446cb]"
                 >
                   Investigate <span aria-hidden="true" className="ml-1">→</span>
-                </Link>
+                </InvestigationLaunchLink>
               ) : (
                 <button
                   type="button"

@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 
 import { DemoDatasetDiagnosticsRoute } from "@/components/datasets/demo-dataset-diagnostics-route";
 import { DiagnosticsPage } from "@/components/diagnostics/diagnostics-page";
@@ -19,19 +19,16 @@ import {
   getDiagnosticReturnTarget,
   withDiagnosticReturnTo,
 } from "@/lib/diagnostics/diagnostic-navigation";
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 import {
-  getLatestDatasetInvestigationByFingerprint,
   getDatasetInvestigationByRouteId,
-  getDatasetInvestigationByDiagnosticCaseId,
-  saveDatasetInvestigationCase,
 } from "@/lib/investigations/dataset-investigation-store";
-import type { InvestigationSource } from "@/lib/investigations/mock-investigations";
 import { buildAnalyticsSignalFingerprint } from "@/lib/investigations/signal-fingerprint";
-import { randomUUID } from "node:crypto";
+import { getInvestigationSourceLabel } from "@/lib/investigations/source-label";
 import {
   diagnosticCases,
   getDiagnosticCase,
@@ -47,21 +44,20 @@ export function generateStaticParams() {
   return Object.keys(diagnosticCases).map((anomalyId) => ({ anomalyId }));
 }
 
-function getSourceLabel(
-  surface: "activity" | "retention" | "funnel" | "feedback",
-): InvestigationSource {
-  if (surface === "activity") {
-    return "Trends Analytics";
-  }
-  if (surface === "funnel") {
-    return "Funnel Analytics";
-  }
-
-  if (surface === "feedback") {
-    return "Feedback Intelligence";
-  }
-
-  return "Retention Analytics";
+function DatasetInvestigationUnavailable() {
+  return (
+    <main className="mx-auto w-full max-w-[1280px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
+      <section className="rounded-xl border border-[#e3e7ee] bg-white px-6 py-10 text-center shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
+        <h1 className="text-lg font-semibold text-[#263247]">
+          Dataset investigation unavailable
+        </h1>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#6f7a8e]">
+          The confirmed Dataset session or investigation could not be recovered.
+          Dataset Mode remains active and no Demo diagnostic will be shown.
+        </p>
+      </section>
+    </main>
+  );
 }
 
 export default async function AiDiagnosticsRoute({
@@ -70,19 +66,33 @@ export default async function AiDiagnosticsRoute({
 }: AiDiagnosticsPageProps) {
   const [{ anomalyId }, query] = await Promise.all([params, searchParams]);
   const cookieStore = await cookies();
-  const datasetSessionId = cookieStore.get(
-    DATASET_ANALYTICS_SESSION_COOKIE,
-  )?.value;
-  const datasetSession = getDatasetAnalyticsSession(datasetSessionId);
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
+  );
+  const datasetMode = Boolean(datasetSessionId);
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
   const analyticsContext = parseAnalyticsInvestigationContext(
     query[ANALYTICS_INVESTIGATION_CONTEXT_QUERY_PARAM],
   );
   const returnTarget = getDiagnosticReturnTarget(
     query[DIAGNOSTIC_RETURN_TO_QUERY_PARAM],
   );
-  const startNewRun = query.investigationRun === "new";
+  const isUploadedDatasetContext =
+    analyticsContext?.datasetEvidence?.source === "uploaded-dataset";
+
+  if (datasetMode && !datasetSession) {
+    return (
+      <AppShell activeNavigation="ai-diagnostics">
+        <DatasetInvestigationUnavailable />
+      </AppShell>
+    );
+  }
+
   const isCurrentDatasetContext = Boolean(
     analyticsContext &&
+      datasetMode &&
       datasetSessionId &&
       datasetSession &&
       analyticsContext.datasetEvidence?.source === "uploaded-dataset" &&
@@ -107,37 +117,35 @@ export default async function AiDiagnosticsRoute({
       )
     : null;
 
+  if (datasetMode && analyticsContext && !isCurrentDatasetContext) {
+    notFound();
+  }
+
   if (analyticsDiagnosticCase && analyticsContext) {
+    if (isUploadedDatasetContext && !isCurrentDatasetContext) {
+      notFound();
+    }
+
     const existingInvestigation =
-      signalFingerprint && datasetSessionId && datasetSession
-        ? getLatestDatasetInvestigationByFingerprint(
+      datasetMode && datasetSessionId && datasetSession
+        ? getDatasetInvestigationByRouteId(
             datasetSessionId,
+            anomalyId,
             datasetSession.datasetIdentity,
-            signalFingerprint,
           )
         : null;
-    const investigationId = signalFingerprint && startNewRun
-      ? `${signalFingerprint}:run:${randomUUID().slice(0, 8)}`
-      : signalFingerprint;
-    const persistedInvestigation =
-      isCurrentDatasetContext &&
-      datasetSessionId &&
-      datasetSession &&
-      investigationId &&
-      (!existingInvestigation || startNewRun)
-        ? saveDatasetInvestigationCase({
-            sessionId: datasetSessionId,
-            investigationId,
-            signalFingerprint: signalFingerprint!,
-            datasetId: datasetSession.datasetId,
-            datasetIdentity: datasetSession.datasetIdentity,
-            sourceLabel: getSourceLabel(analyticsContext.surface),
-            signalType: analyticsContext.surface,
-            diagnosticCase: analyticsDiagnosticCase,
-          })
-        : existingInvestigation;
+    const persistedInvestigation = existingInvestigation;
+
+    if (datasetMode && !persistedInvestigation) {
+      return (
+        <AppShell activeNavigation="ai-diagnostics">
+          <DatasetInvestigationUnavailable />
+        </AppShell>
+      );
+    }
+
     const existingLifecycle =
-      existingInvestigation && !startNewRun
+      existingInvestigation
         ? {
             status: existingInvestigation.status,
             createdAt: existingInvestigation.createdAt,
@@ -162,7 +170,7 @@ export default async function AiDiagnosticsRoute({
       <AppShell activeNavigation="ai-diagnostics">
           <DiagnosticsPage
             diagnosticCase={persistedInvestigation?.diagnosticCase ?? analyticsDiagnosticCase}
-            sourceLabel={getSourceLabel(analyticsContext.surface)}
+            sourceLabel={getInvestigationSourceLabel(analyticsContext.surface)}
             investigationCaseId={persistedInvestigation?.id}
             existingInvestigation={existingLifecycle}
             initialInvestigation={
@@ -183,17 +191,11 @@ export default async function AiDiagnosticsRoute({
   }
 
   if (datasetSessionId && datasetSession) {
-    const persistedInvestigation =
-      getDatasetInvestigationByRouteId(
-        datasetSessionId,
-        anomalyId,
-        datasetSession.datasetIdentity,
-      ) ??
-      getDatasetInvestigationByDiagnosticCaseId(
-        datasetSessionId,
-        anomalyId,
-        datasetSession.datasetIdentity,
-      );
+    const persistedInvestigation = getDatasetInvestigationByRouteId(
+      datasetSessionId,
+      anomalyId,
+      datasetSession.datasetIdentity,
+    );
 
     if (persistedInvestigation) {
       return (

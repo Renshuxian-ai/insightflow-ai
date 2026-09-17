@@ -45,6 +45,7 @@ export function RecentInvestigationsCard({
         </div>
         <Link
           href="/investigations"
+          prefetch={false}
           className="shrink-0 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb]"
         >
           View investigations <span aria-hidden="true">→</span>
@@ -70,6 +71,7 @@ export function RecentInvestigationsCard({
             <Link
               key={investigation.id}
               href={investigation.href}
+              prefetch={false}
               className="block rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-3.5 py-3 transition-colors hover:border-[#d7ddea] hover:bg-white"
             >
               <div className="flex items-center justify-between gap-3">

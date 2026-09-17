@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import type { AnomalyCardViewModel } from "@/lib/overview/overview-view-model";
 import { buildAnalyticsInvestigationHref } from "@/lib/analytics/investigation-context";
 import { withDiagnosticReturnTo } from "@/lib/diagnostics/diagnostic-navigation";
@@ -28,12 +27,12 @@ export function AnomalyCard({ anomaly }: AnomalyCardProps) {
           <h3 className="mt-1.5 line-clamp-2 text-sm font-semibold leading-5 tracking-[-0.01em] text-[#263247]">{anomaly.title}</h3>
         </div>
         {anomaly.showInvestigationAction && anomaly.diagnosticAvailable ? (
-          <Link
+          <InvestigationLaunchLink
             href={investigationHref}
             className="shrink-0 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb]"
           >
             Investigate <span aria-hidden="true">→</span>
-          </Link>
+          </InvestigationLaunchLink>
         ) : anomaly.showInvestigationAction ? (
           <button
             type="button"

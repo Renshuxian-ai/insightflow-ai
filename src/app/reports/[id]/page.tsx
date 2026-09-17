@@ -3,10 +3,11 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { ReportPage } from "@/components/reports/report-page";
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 import { getMockReport, mockReports } from "@/lib/reports/mock-reports";
 import {
   getSessionReportByRouteId,
@@ -24,21 +25,26 @@ export function generateStaticParams() {
 export default async function ReportRoute({ params }: ReportRouteProps) {
   const { id } = await params;
   const cookieStore = await cookies();
-  const datasetSessionId = cookieStore.get(
-    DATASET_ANALYTICS_SESSION_COOKIE,
-  )?.value;
-  const datasetSession = getDatasetAnalyticsSession(
-    datasetSessionId,
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
-  const sessionReport = getSessionReportByRouteId(
-    datasetSession
-      ? datasetSessionId
-      : cookieStore.get(REPORT_SESSION_COOKIE)?.value,
-    id,
-    datasetSession?.datasetIdentity,
-  );
-  const hasDatasetSession = Boolean(datasetSession);
-  const report = sessionReport ?? (hasDatasetSession ? null : getMockReport(id));
+  const datasetMode = Boolean(datasetSessionId);
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
+  const sessionReport = datasetMode
+    ? datasetSession && datasetSessionId
+      ? getSessionReportByRouteId(
+          datasetSessionId,
+          id,
+          datasetSession.datasetIdentity,
+        )
+      : null
+    : getSessionReportByRouteId(
+        cookieStore.get(REPORT_SESSION_COOKIE)?.value,
+        id,
+      );
+  const report = sessionReport ?? (datasetMode ? null : getMockReport(id));
 
   if (!report) {
     notFound();

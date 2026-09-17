@@ -3,17 +3,22 @@ import { cookies } from "next/headers";
 
 import { DemoDatasetDiagnosticsRoute } from "@/components/datasets/demo-dataset-diagnostics-route";
 import { AppShell } from "@/components/layout/app-shell";
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 
 const overviewReturnTarget = {
   href: "/" as const,
   label: "Overview" as const,
 };
 
-function DatasetDiagnosticsEmptyState() {
+function DatasetDiagnosticsEmptyState({
+  unavailable = false,
+}: {
+  unavailable?: boolean;
+}) {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
       <header>
@@ -46,11 +51,12 @@ function DatasetDiagnosticsEmptyState() {
           </svg>
         </div>
         <h2 className="mt-4 text-lg font-semibold text-[#263247]">
-          No diagnostics yet
+          {unavailable ? "Dataset diagnostics unavailable" : "No diagnostics yet"}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#6f7a8e]">
-          Start an investigation from an Analytics or Feedback signal to review
-          evidence and investigate possible causes.
+          {unavailable
+            ? "The confirmed Dataset session could not be recovered. Dataset Mode remains active and no Demo diagnostics will be shown."
+            : "Start an investigation from an Analytics or Feedback signal to review evidence and investigate possible causes."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
@@ -73,14 +79,18 @@ function DatasetDiagnosticsEmptyState() {
 
 export default async function AiDiagnosticsRootRoute() {
   const cookieStore = await cookies();
-  const datasetSession = getDatasetAnalyticsSession(
-    cookieStore.get(DATASET_ANALYTICS_SESSION_COOKIE)?.value,
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
+  const datasetMode = Boolean(datasetSessionId);
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
 
   return (
     <AppShell activeNavigation="ai-diagnostics">
-      {datasetSession ? (
-        <DatasetDiagnosticsEmptyState />
+      {datasetMode ? (
+        <DatasetDiagnosticsEmptyState unavailable={!datasetSession} />
       ) : (
         <DemoDatasetDiagnosticsRoute returnTarget={overviewReturnTarget} />
       )}

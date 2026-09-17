@@ -7,6 +7,7 @@ import {
   registerDatasetAnalyticsSession,
 } from "@/lib/analytics/dataset-context/session-store";
 import { DATASET_LIMITS } from "@/lib/datasets/constants";
+import { DATASET_MODE_COOKIE } from "@/lib/datasets/dataset-mode";
 import { getRuntimeSessionId } from "@/lib/runtime-session";
 import { isDatasetError, type DatasetError } from "@/lib/datasets/errors";
 import {
@@ -411,12 +412,22 @@ export async function POST(request: Request) {
       dataset: parsedDataset,
       semanticSchema,
     });
+    const datasetIdentity = createDatasetContentIdentity(parsedDataset);
+    const activityEvidence = buildOverviewActivityEvidence({
+      datasetId: semanticSchema.physicalSchema.datasetId,
+      dataset: parsedDataset,
+      semanticSchema,
+    });
+    const overviewRuntime = buildOverviewRuntime({
+      analyticsContext,
+      activityEvidence,
+    });
     const cookieStore = await cookies();
     const session = registerDatasetAnalyticsSession(
       analyticsContext,
       {
         requestedSessionId: runtimeSessionId,
-        datasetIdentity: createDatasetContentIdentity(parsedDataset),
+        datasetIdentity,
       },
     );
 
@@ -427,16 +438,14 @@ export async function POST(request: Request) {
       path: "/",
       maxAge: 30 * 60,
     });
-
-    const activityEvidence = buildOverviewActivityEvidence({
-      datasetId: semanticSchema.physicalSchema.datasetId,
-      dataset: parsedDataset,
-      semanticSchema,
+    cookieStore.set(DATASET_MODE_COOKIE, session.sessionId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
     });
 
-    return jsonResponse(
-      buildOverviewRuntime({ analyticsContext, activityEvidence }),
-    );
+    return jsonResponse(overviewRuntime);
   } catch (error) {
     if (error instanceof OverviewApiError) {
       return errorResponse(error.code, error.message, error.status);

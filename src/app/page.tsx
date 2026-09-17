@@ -2,18 +2,21 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { OverviewPage } from "@/components/overview/overview-page";
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 import { listDatasetInvestigations } from "@/lib/investigations/dataset-investigation-store";
 
 export default async function Home() {
   const cookieStore = await cookies();
-  const datasetSessionId = cookieStore.get(
-    DATASET_ANALYTICS_SESSION_COOKIE,
-  )?.value;
-  const datasetSession = getDatasetAnalyticsSession(datasetSessionId);
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
+  );
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
   const recentInvestigations =
     datasetSessionId && datasetSession
       ? listDatasetInvestigations(

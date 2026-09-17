@@ -2,10 +2,11 @@ import { cookies } from "next/headers";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { ReportsPage } from "@/components/reports/reports-page";
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 import { mockReports } from "@/lib/reports/mock-reports";
 import {
   getSessionReports,
@@ -14,31 +15,29 @@ import {
 
 export default async function ReportsRoute() {
   const cookieStore = await cookies();
-  const datasetSessionId = cookieStore.get(
-    DATASET_ANALYTICS_SESSION_COOKIE,
-  )?.value;
-  const datasetSession = getDatasetAnalyticsSession(
-    datasetSessionId,
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
   );
-  const sessionReports = getSessionReports(
-    datasetSession
-      ? datasetSessionId
-      : cookieStore.get(REPORT_SESSION_COOKIE)?.value,
-    datasetSession?.datasetIdentity,
-  );
-  const hasDatasetSession = Boolean(datasetSession);
-  const reports =
-    sessionReports.length > 0
-      ? sessionReports
-      : hasDatasetSession
-        ? []
-        : mockReports;
+  const datasetMode = Boolean(datasetSessionId);
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
+  const demoSessionReports = datasetMode
+    ? []
+    : getSessionReports(cookieStore.get(REPORT_SESSION_COOKIE)?.value);
+  const reports = datasetMode
+    ? datasetSession && datasetSessionId
+      ? getSessionReports(datasetSessionId, datasetSession.datasetIdentity)
+      : []
+    : demoSessionReports.length > 0
+      ? demoSessionReports
+      : mockReports;
 
   return (
     <AppShell activeNavigation="reports">
       <ReportsPage
         reports={reports}
-        canDelete={hasDatasetSession}
+        canDelete={datasetMode && Boolean(datasetSession)}
       />
     </AppShell>
   );

@@ -4,6 +4,10 @@ import {
   getDatasetAnalyticsSession,
 } from "@/lib/analytics/dataset-context/session-store";
 import {
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
+import {
   InvestigationOutputValidationError,
   parseInvestigationResult,
 } from "@/lib/ai/output-schema";
@@ -92,13 +96,23 @@ export async function POST(request: Request) {
       diagnosticCase,
     );
     const cookieStore = await cookies();
-    const datasetSessionId = runtimeSessionId;
-    const datasetSession = getDatasetAnalyticsSession(
-      datasetSessionId,
+    const datasetSessionId = getDatasetModeRuntimeSessionId(
+      cookieStore.get(DATASET_MODE_COOKIE)?.value,
     );
+    const datasetMode = Boolean(datasetSessionId);
     const isUploadedDatasetCase = diagnosticCase.evidence.behaviorSignals.some(
       (signal) => signal.source.startsWith("Uploaded dataset"),
     );
+    const datasetSession = datasetSessionId === runtimeSessionId
+      ? getDatasetAnalyticsSession(datasetSessionId)
+      : null;
+
+    if (datasetMode !== isUploadedDatasetCase) {
+      return Response.json(
+        { error: "The report source does not match the active workspace mode." },
+        { status: 409 },
+      );
+    }
     const persistedInvestigation =
       datasetSession &&
       datasetSessionId &&
@@ -110,9 +124,17 @@ export async function POST(request: Request) {
           )
         : null;
 
-    if (isUploadedDatasetCase && !persistedInvestigation) {
+    if (
+      isUploadedDatasetCase &&
+      (!persistedInvestigation ||
+        persistedInvestigation.status !== "Validation ready" ||
+        !persistedInvestigation.investigationResult)
+    ) {
       return Response.json(
-        { error: "The Dataset investigation case is no longer available." },
+        {
+          error:
+            "The Dataset investigation must finish investigation generation before validation can create a report.",
+        },
         { status: 409 },
       );
     }

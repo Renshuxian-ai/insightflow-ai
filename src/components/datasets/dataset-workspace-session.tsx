@@ -23,7 +23,10 @@ import type {
 } from "@/lib/datasets/semantic/types";
 import type { Dataset } from "@/lib/datasets/types";
 import type { OverviewRuntime } from "@/lib/overview/overview-runtime";
-import { RUNTIME_SESSION_HEADER } from "@/lib/runtime-session";
+import {
+  isRuntimeSessionId,
+  RUNTIME_SESSION_HEADER,
+} from "@/lib/runtime-session";
 
 export type WorkspaceStatus = "idle" | "uploading" | "ready" | "error";
 
@@ -60,6 +63,7 @@ type DatasetOverviewRequest = {
 
 type DatasetWorkspaceSession = {
   runtimeSessionId: string;
+  datasetMode: boolean;
   status: WorkspaceStatus;
   setStatus: Dispatch<SetStateAction<WorkspaceStatus>>;
   dataset: Dataset | null;
@@ -119,6 +123,11 @@ type OverviewApiErrorPayload = {
   };
 };
 
+type RuntimeSessionPayload = {
+  runtimeSessionId?: unknown;
+  mode?: unknown;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -169,6 +178,7 @@ export function DatasetWorkspaceSessionProvider({
 }) {
   const router = useRouter();
   const [runtimeSessionId, setRuntimeSessionId] = useState<string | null>(null);
+  const [datasetMode, setDatasetMode] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [runtimeBootstrapError, setRuntimeBootstrapError] = useState(false);
   const [isRuntimeTransitionPending, startRuntimeTransition] = useTransition();
@@ -222,7 +232,7 @@ export function DatasetWorkspaceSessionProvider({
       },
       signal: controller.signal,
     })
-      .then((response) => {
+      .then(async (response) => {
         if (!response.ok || controller.signal.aborted) {
           if (!controller.signal.aborted) {
             setRuntimeBootstrapError(true);
@@ -230,8 +240,22 @@ export function DatasetWorkspaceSessionProvider({
           return;
         }
 
+        const payload = (await response.json()) as RuntimeSessionPayload;
+        const restoredRuntimeSessionId = payload.runtimeSessionId;
+
+        if (
+          !isRuntimeSessionId(restoredRuntimeSessionId) ||
+          (payload.mode !== "dataset" && payload.mode !== "demo")
+        ) {
+          if (!controller.signal.aborted) {
+            setRuntimeBootstrapError(true);
+          }
+          return;
+        }
+
         startRuntimeTransition(() => {
-          setRuntimeSessionId(nextRuntimeSessionId);
+          setRuntimeSessionId(restoredRuntimeSessionId);
+          setDatasetMode(payload.mode === "dataset");
           setRuntimeReady(true);
           router.refresh();
         });
@@ -315,6 +339,8 @@ export function DatasetWorkspaceSessionProvider({
         setOverviewRuntime(result);
         setOverviewStatus("ready");
         setOverviewError(null);
+        setDatasetMode(true);
+        router.refresh();
       } catch (error) {
         if (
           controller.signal.aborted ||
@@ -336,7 +362,7 @@ export function DatasetWorkspaceSessionProvider({
         }
       }
     },
-    [clearDatasetOverview, runtimeSessionId],
+    [clearDatasetOverview, router, runtimeSessionId],
   );
 
   const retryDatasetOverview = useCallback(() => {
@@ -354,6 +380,7 @@ export function DatasetWorkspaceSessionProvider({
   const value = useMemo<DatasetWorkspaceSession>(
     () => ({
       runtimeSessionId: runtimeSessionId ?? "",
+      datasetMode,
       status,
       setStatus,
       dataset,
@@ -403,6 +430,7 @@ export function DatasetWorkspaceSessionProvider({
       clearDatasetOverview,
       currentReviewKey,
       dataset,
+      datasetMode,
       overviewRuntime,
       datasetContext,
       error,
@@ -429,7 +457,7 @@ export function DatasetWorkspaceSessionProvider({
       <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6 text-center">
         <div>
           <p className="text-sm font-semibold text-[#526078]">
-            Demo workspace could not be started.
+            Workspace could not be started.
           </p>
           <p className="mt-1 text-xs text-[#98a1b1]">
             Refresh the page to start a new session.
@@ -443,7 +471,7 @@ export function DatasetWorkspaceSessionProvider({
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6">
         <p className="text-sm font-medium text-[#7e8798]">
-          Preparing demo workspace...
+          Preparing workspace...
         </p>
       </div>
     );

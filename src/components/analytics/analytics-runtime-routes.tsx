@@ -34,10 +34,10 @@ function RuntimeUnavailable({
 }
 
 export function FunnelsRuntimeRoute() {
-  const { dataset, overviewRuntime, overviewStatus, overviewError } =
+  const { datasetMode, overviewRuntime, overviewStatus, overviewError } =
     useDatasetWorkspaceSession();
 
-  if (!dataset) {
+  if (!datasetMode) {
     return <DemoAnalyticsRoute page="funnels" />;
   }
 
@@ -62,10 +62,10 @@ export function FunnelsRuntimeRoute() {
 }
 
 export function RetentionRuntimeRoute() {
-  const { dataset, overviewRuntime, overviewStatus, overviewError } =
+  const { datasetMode, overviewRuntime, overviewStatus, overviewError } =
     useDatasetWorkspaceSession();
 
-  if (!dataset) {
+  if (!datasetMode) {
     return <DemoAnalyticsRoute page="retention" />;
   }
 
@@ -90,10 +90,10 @@ export function RetentionRuntimeRoute() {
 }
 
 export function FeedbackRuntimeRoute() {
-  const { dataset, overviewRuntime, overviewStatus, overviewError } =
+  const { datasetMode, overviewRuntime, overviewStatus, overviewError } =
     useDatasetWorkspaceSession();
 
-  if (!dataset) {
+  if (!datasetMode) {
     return <FeedbackPage />;
   }
 

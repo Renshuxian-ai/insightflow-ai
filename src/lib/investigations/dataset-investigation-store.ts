@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
-import { DATASET_PRIMARY_ANOMALY_ID } from "@/lib/diagnostics/dataset-diagnostic-case";
 import type { AgentTrace } from "@/lib/ai/agent/types";
 import type { InvestigationResult } from "@/lib/investigations/types";
 import type { ProductReport } from "@/lib/reports/mock-reports";
@@ -232,49 +231,6 @@ export function getLatestDatasetInvestigationByFingerprint(
   return records.sort(
     (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
   )[0] ?? null;
-}
-
-export function getDatasetInvestigationByDiagnosticCaseId(
-  sessionId: string,
-  diagnosticCaseId: string,
-  datasetIdentity: string,
-) {
-  const records = [
-    ...(getSession(sessionId, false)?.records.values() ?? []),
-  ].filter(
-    (record) =>
-      record.datasetIdentity === datasetIdentity &&
-      record.diagnosticCase.id === diagnosticCaseId,
-  );
-
-  // A legacy ID identifies no particular signal. It is only safe to restore
-  // when exactly one legacy record exists for the current Dataset.
-  if (
-    diagnosticCaseId === DATASET_PRIMARY_ANOMALY_ID &&
-    records.length !== 1
-  ) {
-    return null;
-  }
-
-  return records.sort(
-    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-  )[0] ?? null;
-}
-
-export function getLatestDatasetInvestigation(
-  sessionId: string,
-  datasetIdentity: string,
-) {
-  const records = [
-    ...(getSession(sessionId, false)?.records.values() ?? []),
-  ].filter((record) => record.datasetIdentity === datasetIdentity);
-
-  return (
-    records.sort(
-      (left, right) =>
-        Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-    )[0] ?? null
-  );
 }
 
 export function updateDatasetInvestigation(input: {

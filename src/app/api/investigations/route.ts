@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 
+import { getDatasetAnalyticsSession } from "@/lib/analytics/dataset-context/session-store";
 import {
-  DATASET_ANALYTICS_SESSION_COOKIE,
-  getDatasetAnalyticsSession,
-} from "@/lib/analytics/dataset-context/session-store";
+  DATASET_MODE_COOKIE,
+  getDatasetModeRuntimeSessionId,
+} from "@/lib/datasets/dataset-mode";
 import { getAnalyticsInvestigationToolNames } from "@/lib/ai/agent/investigation-agent";
 import { generateInvestigation } from "@/lib/ai/investigation-generator";
 import { generateDatasetInvestigation } from "@/lib/ai/dataset-investigation-generator";
@@ -19,14 +20,10 @@ import {
   getDatasetInvestigation,
   deleteDatasetInvestigation,
   listDatasetInvestigations,
-  reconcileDatasetInvestigationReports,
   updateDatasetInvestigation,
 } from "@/lib/investigations/dataset-investigation-store";
 import { mockInvestigations } from "@/lib/investigations/mock-investigations";
-import {
-  deleteSessionReport,
-  getSessionReports,
-} from "@/lib/reports/session-report-store";
+import { deleteSessionReport } from "@/lib/reports/session-report-store";
 import { getRuntimeSessionId } from "@/lib/runtime-session";
 
 type JsonRecord = Record<string, unknown>;
@@ -61,30 +58,26 @@ function matchesPersistedDiagnosticCase(
 
 export async function GET() {
   const cookieStore = await cookies();
-  const datasetSessionId = cookieStore.get(
-    DATASET_ANALYTICS_SESSION_COOKIE,
-  )?.value;
-  const datasetSession = getDatasetAnalyticsSession(datasetSessionId);
-
-  if (datasetSession && datasetSessionId) {
-    reconcileDatasetInvestigationReports({
-      sessionId: datasetSessionId,
-      datasetIdentity: datasetSession.datasetIdentity,
-      reports: getSessionReports(
-        datasetSessionId,
-        datasetSession.datasetIdentity,
-      ),
-    });
-  }
+  const datasetSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
+  );
+  const datasetMode = Boolean(datasetSessionId);
+  const datasetSession = datasetSessionId
+    ? getDatasetAnalyticsSession(datasetSessionId)
+    : null;
 
   return Response.json({
     investigations:
-      datasetSession && datasetSessionId
-        ? listDatasetInvestigations(
-            datasetSessionId,
-            datasetSession.datasetIdentity,
-          )
+      datasetMode
+        ? datasetSession && datasetSessionId
+          ? listDatasetInvestigations(
+              datasetSessionId,
+              datasetSession.datasetIdentity,
+            )
+          : []
         : mockInvestigations,
+    mode: datasetMode ? "dataset" : "demo",
+    datasetUnavailable: datasetMode && !datasetSession,
   });
 }
 
@@ -104,6 +97,11 @@ export async function POST(request: Request) {
   const diagnosticCaseId = requestBody.diagnosticCaseId;
   const modelId = requestBody.modelId;
   const investigationCaseId = requestBody.investigationCaseId;
+  const cookieStore = await cookies();
+  const datasetModeSessionId = getDatasetModeRuntimeSessionId(
+    cookieStore.get(DATASET_MODE_COOKIE)?.value,
+  );
+  const datasetMode = Boolean(datasetModeSessionId);
 
   if (
     typeof diagnosticCaseId !== "string" ||
@@ -120,10 +118,19 @@ export async function POST(request: Request) {
     diagnosticCaseId,
     modelId,
   };
+  const hasDatasetPayload = requestBody.diagnosticCase !== undefined;
+  const usesDatasetDiagnosticCaseId = isDatasetDiagnosticCaseId(diagnosticCaseId);
+
+  if (datasetMode && !hasDatasetPayload) {
+    return Response.json(
+      { error: "Dataset Mode requires an exact persisted Dataset investigation." },
+      { status: 409 },
+    );
+  }
 
   if (
-    isDatasetDiagnosticCaseId(diagnosticCaseId) ||
-    requestBody.diagnosticCase !== undefined
+    usesDatasetDiagnosticCaseId ||
+    hasDatasetPayload
   ) {
     if (requestBody.diagnosticCase === undefined) {
       return Response.json(
@@ -163,8 +170,24 @@ export async function POST(request: Request) {
 
     try {
       const datasetSessionId = getRuntimeSessionId(request);
-      const datasetSession = isUploadedDatasetCase(diagnosticCase)
-        ? getDatasetAnalyticsSession(datasetSessionId ?? undefined)
+      const uploadedDatasetCase = isUploadedDatasetCase(diagnosticCase);
+
+      if (datasetMode !== uploadedDatasetCase) {
+        return Response.json(
+          { error: "The investigation source does not match the active workspace mode." },
+          { status: 409 },
+        );
+      }
+
+      if (datasetMode && datasetModeSessionId !== datasetSessionId) {
+        return Response.json(
+          { error: "A confirmed Dataset session is required." },
+          { status: 409 },
+        );
+      }
+
+      const datasetSession = datasetMode && datasetModeSessionId
+        ? getDatasetAnalyticsSession(datasetModeSessionId)
         : null;
       const persistedInvestigation =
         datasetSession &&
@@ -178,7 +201,7 @@ export async function POST(request: Request) {
           : null;
 
       if (
-        isUploadedDatasetCase(diagnosticCase) &&
+        datasetMode &&
         (!persistedInvestigation ||
           !matchesPersistedDiagnosticCase(
             diagnosticCase,
@@ -192,7 +215,7 @@ export async function POST(request: Request) {
       }
       const generation = await generateDatasetInvestigation(
         diagnosticCase,
-        datasetSession && persistedInvestigation
+        datasetMode && datasetSession && persistedInvestigation
           ? {
               datasetAnalyticsContext: datasetSession.analyticsContext,
               analyticsToolNames:
@@ -204,6 +227,7 @@ export async function POST(request: Request) {
       );
 
       if (
+        datasetMode &&
         datasetSession &&
         datasetSessionId &&
         persistedInvestigation

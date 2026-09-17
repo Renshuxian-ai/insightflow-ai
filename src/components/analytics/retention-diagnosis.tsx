@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import type {
   RetentionDiagnosisPresentation,
   RetentionSuggestedCheckPresentation,
@@ -236,13 +236,13 @@ export function RetentionDiagnosis({
               Suggested checks are directions to validate, not conclusions.
             </p>
             {investigationHref ? (
-              <Link
+              <InvestigationLaunchLink
                 href={investigationHref}
-                aria-label={`Investigate: ${selectedTarget?.title ?? "selected retention target"}`}
+                ariaLabel={`Investigate: ${selectedTarget?.title ?? "selected retention target"}`}
                 className="mt-4 inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border border-[#cfd9fb] bg-white px-3 text-[11px] font-semibold text-[#3559e8] transition-colors hover:border-[#aebefd] hover:bg-[#f5f7ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]"
               >
                 Investigate <span aria-hidden="true" className="ml-1">→</span>
-              </Link>
+              </InvestigationLaunchLink>
             ) : null}
           </article>
         </div>

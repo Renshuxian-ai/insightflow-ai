@@ -169,9 +169,15 @@ function SidebarLink({
   active: boolean;
   collapsed: boolean;
 }) {
+  const crossesDatasetModeBoundary =
+    item.href === "/ai-diagnostics" ||
+    item.href === "/investigations" ||
+    item.href === "/reports";
+
   return (
     <Link
       href={item.href}
+      prefetch={crossesDatasetModeBoundary ? false : undefined}
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? label : undefined}
       title={collapsed ? label : undefined}

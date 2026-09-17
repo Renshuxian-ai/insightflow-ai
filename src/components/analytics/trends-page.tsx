@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import { overviewScrollRegionClassName } from "@/components/overview/overview-scroll-region";
 import { buildAnalyticsInvestigationHref } from "@/lib/analytics/investigation-context";
 import type {
@@ -202,13 +202,13 @@ function SignalCard({
         </p>
       </button>
       {investigateHref ? (
-        <Link
+        <InvestigationLaunchLink
           href={investigateHref}
-          aria-label={`Investigate ${signal.title}`}
+          ariaLabel={`Investigate ${signal.title}`}
           className="absolute top-3 right-3 z-10 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]/30"
         >
           Investigate <span aria-hidden="true">→</span>
-        </Link>
+        </InvestigationLaunchLink>
       ) : (
         <span className="absolute top-3 right-3 text-xs font-medium text-[#a1a8b5]">
           Evidence only

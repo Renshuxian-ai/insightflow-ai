@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import type { RetentionRuntime } from "@/lib/analytics/analytics-runtime";
 import { buildAnalyticsInvestigationHref } from "@/lib/analytics/investigation-context";
 
@@ -145,12 +145,12 @@ export function DatasetRetentionPage({
             }
           />
           {href ? (
-            <Link
+            <InvestigationLaunchLink
               href={href}
               className="mb-2.5 inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-3.5 text-xs font-semibold text-white hover:bg-[#2446cb]"
             >
               Investigate <span aria-hidden="true" className="ml-1">→</span>
-            </Link>
+            </InvestigationLaunchLink>
           ) : null}
         </div>
         <AnalyticsMetricGroup

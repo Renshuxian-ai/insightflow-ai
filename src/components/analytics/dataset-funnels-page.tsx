@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import type {
   FunnelRuntime,
   FunnelRuntimeTransition,
@@ -154,12 +153,12 @@ export function DatasetFunnelsPage({
               </p>
             </div>
             {href ? (
-              <Link
+              <InvestigationLaunchLink
                 href={href}
                 className="inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-3.5 text-xs font-semibold text-white transition-colors hover:bg-[#2446cb]"
               >
                 Investigate <span aria-hidden="true" className="ml-1">→</span>
-              </Link>
+              </InvestigationLaunchLink>
             ) : (
               <span className="rounded-md bg-[#f1f3f6] px-2 py-1 text-[10px] font-bold tracking-[0.08em] text-[#687387]">
                 COMPARISON UNAVAILABLE

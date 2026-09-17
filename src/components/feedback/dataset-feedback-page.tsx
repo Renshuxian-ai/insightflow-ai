@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { InvestigationLaunchLink } from "@/components/diagnostics/investigation-launch-link";
 import type {
   FeedbackRuntime,
   FeedbackRuntimeTopic,
@@ -178,9 +178,9 @@ export function DatasetFeedbackPage({
               <p className="mt-1 text-xs text-[#98a1b1]">Observed evidence for {selectedTopic.title}</p>
             </div>
             {href ? (
-              <Link href={href} className="inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-3.5 text-xs font-semibold text-white hover:bg-[#2446cb]">
+              <InvestigationLaunchLink href={href} className="inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-3.5 text-xs font-semibold text-white hover:bg-[#2446cb]">
                 Investigate <span aria-hidden="true" className="ml-1">→</span>
-              </Link>
+              </InvestigationLaunchLink>
             ) : (
               <span className="rounded-md bg-[#f1f3f6] px-2 py-1 text-[10px] font-bold text-[#687387]">
                 INVESTIGATION EVIDENCE INSUFFICIENT

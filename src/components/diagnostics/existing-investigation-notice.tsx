@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import type { InvestigationStatus } from "@/lib/investigations/mock-investigations";
 
+import { InvestigationLaunchLink } from "./investigation-launch-link";
+
 export type ExistingInvestigationLifecycle = {
   status: InvestigationStatus;
   createdAt: string;
@@ -46,12 +48,12 @@ export function ExistingInvestigationNotice({
             View report
           </Link>
         ) : null}
-        <Link
+        <InvestigationLaunchLink
           href={investigation.newRunHref}
           className="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-[#526078] transition-colors hover:bg-white hover:text-[#263247]"
         >
           Run new investigation
-        </Link>
+        </InvestigationLaunchLink>
       </div>
     </section>
   );
