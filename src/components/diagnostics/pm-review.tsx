@@ -16,6 +16,7 @@ type PMReviewPanelProps = {
   validationOptions: ValidationOption[];
   confirmedReview: PMReview | null;
   error: string | null;
+  isValidationPlanAvailable: boolean;
   onDecisionChange: (decision: ReviewDecision) => void;
   onRefinedHypothesisChange: (value: string) => void;
   onNoteChange: (value: string) => void;
@@ -64,6 +65,7 @@ export function PMReviewPanel({
   validationOptions,
   confirmedReview,
   error,
+  isValidationPlanAvailable,
   onDecisionChange,
   onRefinedHypothesisChange,
   onNoteChange,
@@ -190,7 +192,9 @@ export function PMReviewPanel({
   const canConfirmAdvancedReview =
     decision === "reject-suggestion"
       ? rejectionReason.trim().length > 0
-      : decision !== null && selectedValidationId.length > 0;
+      : decision !== null &&
+        selectedValidationId.length > 0 &&
+        isValidationPlanAvailable;
   const recommendedAnalysis =
     validationOptions.find(
       (validation) => validation.id === selectedValidationId,
@@ -243,13 +247,24 @@ export function PMReviewPanel({
         </div>
         <button
           type="button"
-          disabled={!recommendedAnalysis}
+          disabled={!recommendedAnalysis || !isValidationPlanAvailable}
           onClick={onGenerateValidationPlan}
           className="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] disabled:cursor-not-allowed disabled:bg-[#b7c0d6]"
         >
-          Generate validation plan
+          {recommendedAnalysis && !isValidationPlanAvailable
+            ? "Validation plan unavailable"
+            : "Generate validation plan"}
         </button>
       </div>
+
+      {recommendedAnalysis && !isValidationPlanAvailable ? (
+        <p
+          className="mt-4 rounded-lg border border-[#eadfca] bg-[#fffcf6] px-3 py-2 text-xs text-[#92601b]"
+          role="status"
+        >
+          This recommended analysis does not currently have a validation plan.
+        </p>
+      ) : null}
 
       {error ? (
         <p
@@ -449,7 +464,9 @@ export function PMReviewPanel({
               >
                 {decision === "reject-suggestion"
                   ? "Record rejection"
-                  : "Generate validation plan"}
+                  : isValidationPlanAvailable
+                    ? "Generate validation plan"
+                    : "Validation plan unavailable"}
               </button>
             </div>
           ) : null}

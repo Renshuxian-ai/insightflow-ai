@@ -101,6 +101,123 @@ export const validationPlanTemplates: ValidationPlanTemplate[] = [
     },
   },
   {
+    id: "template-conversion-inspect-step-transition",
+    diagnosticCaseId: conversionCaseId,
+    nextValidationId: "inspect-step-transition",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether the Step 2 to Step 3 decline remains concentrated after comparing consistent dates and connector types.",
+      "evidence-collection":
+        "Collect a matched Step 2 to Step 3 comparison across dates and connector types.",
+    },
+    methodType: "funnel-review",
+    requiredEvidence: [
+      {
+        id: "conversion-step-transition-comparison",
+        description:
+          "Matched Step 2 and Step 3 completion evidence by date and connector type.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "conversion-step-transition-definitions",
+        description:
+          "Confirm that Step 2, Step 3, eligibility, and completion-window definitions are consistent.",
+      },
+      {
+        id: "conversion-step-transition-concentration",
+        description:
+          "Compare completion by date and connector type to locate where the transition decline is concentrated.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "The Step 2 to Step 3 decline remains concentrated in the affected context under consistent funnel definitions.",
+      weakensHypothesis:
+        "The transition is stable after matching dates and connector types, or the decline is distributed across other steps.",
+    },
+  },
+  {
+    id: "template-conversion-compare-versions",
+    diagnosticCaseId: conversionCaseId,
+    nextValidationId: "compare-versions",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether the conversion decline remains associated with V3.2 after matching acquisition channel and workspace size.",
+      "evidence-collection":
+        "Collect a matched V3.1 and V3.2 conversion comparison.",
+    },
+    methodType: "cohort-comparison",
+    requiredEvidence: [
+      {
+        id: "conversion-version-comparison",
+        description:
+          "Matched conversion evidence for V3.1 and V3.2 by acquisition channel and workspace size.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "conversion-version-cohort-definitions",
+        description:
+          "Confirm that the compared version cohorts use consistent eligibility and conversion definitions.",
+      },
+      {
+        id: "conversion-version-difference",
+        description:
+          "Compare conversion and Step 2 to Step 3 completion between matched V3.1 and V3.2 cohorts.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "The conversion and transition gaps remain materially worse for V3.2 after matching the cohorts.",
+      weakensHypothesis:
+        "The version gap disappears after matching acquisition channel, workspace size, and eligibility rules.",
+    },
+  },
+  {
+    id: "template-conversion-validate-setup-hypothesis",
+    diagnosticCaseId: conversionCaseId,
+    nextValidationId: "validate-setup-hypothesis",
+    objectives: {
+      "hypothesis-validation":
+        "Test whether permission uncertainty or lost setup progress is observable during data-source connection.",
+      "evidence-collection":
+        "Collect focused usability and linked feedback evidence for the setup-friction hypothesis.",
+    },
+    methodType: "usability-review",
+    requiredEvidence: [
+      {
+        id: "conversion-setup-usability-evidence",
+        description:
+          "Observed setup attempts and linked feedback covering permission context and progress preservation.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "conversion-setup-task-definition",
+        description:
+          "Use a consistent data-source connection task and record where participants hesitate or abandon setup.",
+      },
+      {
+        id: "conversion-setup-feedback-alignment",
+        description:
+          "Compare observed friction with the linked permission and lost-progress feedback themes.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "Repeated permission uncertainty or lost progress appears at the same setup transition described by the linked feedback.",
+      weakensHypothesis:
+        "Participants complete the transition without the proposed friction, or observed issues do not align with the linked feedback.",
+    },
+  },
+  {
     id: "template-analytics-retention-onboarding-funnel",
     diagnosticCaseId: DATASET_PRIMARY_ANOMALY_ID,
     nextValidationId: "analytics-compare-onboarding-funnel",
@@ -137,6 +254,123 @@ export const validationPlanTemplates: ValidationPlanTemplate[] = [
         "A material onboarding completion gap is concentrated in the segment with the primary retention signal.",
       weakensHypothesis:
         "Onboarding completion is comparable after applying consistent segment and cohort filters.",
+    },
+  },
+  {
+    id: "template-dataset-compare-release-versions",
+    diagnosticCaseId: DATASET_PRIMARY_ANOMALY_ID,
+    nextValidationId: "dataset-compare-release-versions",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether the retention and onboarding gaps remain concentrated in the current release after matching comparable users.",
+      "evidence-collection":
+        "Collect a matched retention and onboarding comparison for the current and previous releases.",
+    },
+    methodType: "cohort-comparison",
+    requiredEvidence: [
+      {
+        id: "dataset-release-version-comparison",
+        description:
+          "Matched retention, onboarding completion, and user-count evidence for the current and previous releases.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "dataset-release-version-filters",
+        description:
+          "Confirm that release cohorts use consistent platform, user, eligibility, and observation-window definitions.",
+      },
+      {
+        id: "dataset-release-version-gaps",
+        description:
+          "Compare retention and onboarding completion between the matched release cohorts.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "The retention and onboarding gaps remain materially worse in the current release under matched cohort definitions.",
+      weakensHypothesis:
+        "The release differences disappear after matching cohorts or are not aligned across retention and onboarding evidence.",
+    },
+  },
+  {
+    id: "template-dataset-review-onboarding-step",
+    diagnosticCaseId: DATASET_PRIMARY_ANOMALY_ID,
+    nextValidationId: "dataset-review-onboarding-step",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether the identified onboarding transition remains the largest material drop-off under consistent event definitions.",
+      "evidence-collection":
+        "Collect matched step-completion and instrumentation evidence for the identified onboarding transition.",
+    },
+    methodType: "funnel-review",
+    requiredEvidence: [
+      {
+        id: "dataset-onboarding-step-comparison",
+        description:
+          "Matched entry, step-completion, and event-quality evidence for the identified onboarding transition.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "dataset-onboarding-step-definitions",
+        description:
+          "Confirm that entry and completion events use consistent definitions across the compared releases.",
+      },
+      {
+        id: "dataset-onboarding-step-dropoff",
+        description:
+          "Compare transition completion and inspect missing, duplicated, or delayed step events.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "The identified onboarding transition remains the largest drop-off after event definitions and collection quality are verified.",
+      weakensHypothesis:
+        "The drop-off moves to another transition or is explained by inconsistent event instrumentation.",
+    },
+  },
+  {
+    id: "template-dataset-review-linked-feedback",
+    diagnosticCaseId: DATASET_PRIMARY_ANOMALY_ID,
+    nextValidationId: "dataset-review-linked-feedback",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether linked onboarding feedback consistently describes the same friction point as the measured funnel drop-off.",
+      "evidence-collection":
+        "Collect and review feedback linked to the affected onboarding cohort and transition.",
+    },
+    methodType: "feedback-review",
+    requiredEvidence: [
+      {
+        id: "dataset-linked-feedback-evidence",
+        description:
+          "Linked feedback volume, themes, and representative excerpts for the affected onboarding cohort.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "dataset-linked-feedback-scope",
+        description:
+          "Confirm that feedback records belong to the affected cohort and comparison period.",
+      },
+      {
+        id: "dataset-linked-feedback-corroboration",
+        description:
+          "Compare recurring feedback themes with the identified onboarding transition without treating correlation as causation.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "A recurring feedback theme identifies the same onboarding friction point as the measured transition drop-off.",
+      weakensHypothesis:
+        "Linked feedback is sparse, inconsistent, or concentrated on unrelated parts of the experience.",
     },
   },
   {
@@ -449,6 +683,45 @@ export const validationPlanTemplates: ValidationPlanTemplate[] = [
         "The feedback-topic change and linked product signal remain aligned under matched periods and filters.",
       weakensHypothesis:
         "The signals do not align after matching periods and filters, or the relationship is explained by coverage differences.",
+    },
+  },
+  {
+    id: "feedback-product-signal-review",
+    diagnosticCaseId: DATASET_PRIMARY_ANOMALY_ID,
+    nextValidationId: "feedback-product-signal-review",
+    objectives: {
+      "hypothesis-validation":
+        "Determine whether an available product metric changes alongside the feedback topic under matched periods and scope.",
+      "evidence-collection":
+        "Identify and collect a comparable product signal for the feedback topic without inferring a causal relationship.",
+    },
+    methodType: "feedback-review",
+    requiredEvidence: [
+      {
+        id: "feedback-product-signal-comparison",
+        description:
+          "A candidate product metric and feedback-topic timeline using matched periods and population scope.",
+        status: "to-collect",
+        evidenceReferenceIds: [],
+      },
+    ],
+    checks: [
+      {
+        id: "feedback-product-signal-selection",
+        description:
+          "Select a product metric with a documented relationship to the feedback topic and compatible population scope.",
+      },
+      {
+        id: "feedback-product-signal-alignment",
+        description:
+          "Compare direction and timing under matched periods without treating alignment as causation.",
+      },
+    ],
+    evaluationCriteria: {
+      supportsHypothesis:
+        "A relevant product signal and the feedback topic remain directionally aligned under matched periods and scope.",
+      weakensHypothesis:
+        "No relevant product signal is available, or candidate signals do not align after matching periods and population scope.",
     },
   },
   {

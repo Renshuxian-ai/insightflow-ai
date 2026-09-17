@@ -18,13 +18,15 @@ import type {
 } from "@/lib/ai/types";
 import type { DiagnosticCase } from "@/lib/diagnostics/types";
 import type { InvestigationResult } from "@/lib/investigations/types";
-import { buildValidationPlan } from "@/lib/validations/mock-data";
+import {
+  buildValidationPlan,
+  getValidationPlanTemplate,
+} from "@/lib/validations/mock-data";
 import type {
   ActionablePMReview,
   PMReview,
   ReviewDecision,
   ValidationPlan,
-  ValidationPlanTemplate,
 } from "@/lib/validations/types";
 
 import { AITransparency } from "./ai-transparency";
@@ -48,7 +50,6 @@ type InvestigationAssistantProps = {
     createdAt: string;
   } | null;
   models: InvestigationModelOption[];
-  validationPlanTemplates: ValidationPlanTemplate[];
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -95,7 +96,6 @@ export function InvestigationAssistant({
   investigationCaseId,
   initialInvestigation,
   models,
-  validationPlanTemplates,
 }: InvestigationAssistantProps) {
   const { runtimeSessionId } = useDatasetWorkspaceSession();
   const selectableModels =
@@ -140,6 +140,12 @@ export function InvestigationAssistant({
   const validationOptions = result
     ? getInvestigationValidationOptions(diagnosticCase, result)
     : [];
+  const activeValidationId =
+    selectedValidationId || validationOptions[0]?.id || "";
+  const isValidationPlanAvailable = Boolean(
+    activeValidationId &&
+      getValidationPlanTemplate(diagnosticCase.id, activeValidationId),
+  );
 
   function resetReviewWorkflow() {
     setDecision(null);
@@ -248,8 +254,9 @@ export function InvestigationAssistant({
       return;
     }
 
-    const template = validationPlanTemplates.find(
-      (item) => item.nextValidationId === nextValidationId,
+    const template = getValidationPlanTemplate(
+      diagnosticCase.id,
+      nextValidationId,
     );
 
     if (!template) {
@@ -485,6 +492,7 @@ export function InvestigationAssistant({
             validationOptions={validationOptions}
             confirmedReview={confirmedReview}
             error={reviewError}
+            isValidationPlanAvailable={isValidationPlanAvailable}
             onDecisionChange={handleDecisionChange}
             onRefinedHypothesisChange={setRefinedHypothesis}
             onNoteChange={setNote}

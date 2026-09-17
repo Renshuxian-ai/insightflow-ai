@@ -3,7 +3,6 @@ import type { DiagnosticCase } from "@/lib/diagnostics/types";
 import type { DiagnosticReturnTarget } from "@/lib/diagnostics/diagnostic-navigation";
 import type { AgentTrace } from "@/lib/ai/agent/types";
 import type { InvestigationResult } from "@/lib/investigations/types";
-import { getValidationPlanTemplates } from "@/lib/validations/mock-data";
 
 import { DiagnosticEvidence } from "./diagnostic-evidence";
 import {
@@ -37,7 +36,6 @@ export function DiagnosticsPage({
   initialInvestigation,
   returnTarget = { href: "/", label: "Overview" },
 }: DiagnosticsPageProps) {
-  const validationPlanTemplates = getValidationPlanTemplates(diagnosticCase.id);
   const investigationStateKey = [
     investigationCaseId ?? "unpersisted",
     diagnosticCase.id,
@@ -73,7 +71,6 @@ export function DiagnosticsPage({
             investigationCaseId={investigationCaseId}
             initialInvestigation={initialInvestigation}
             models={investigationModelOptions}
-            validationPlanTemplates={validationPlanTemplates}
           />
         </div>
       </div>

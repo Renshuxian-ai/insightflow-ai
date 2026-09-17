@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:validation-plan-coverage": "node scripts/run-validation-plan-coverage.cjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.4",
