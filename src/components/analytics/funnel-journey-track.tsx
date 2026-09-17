@@ -5,7 +5,10 @@ import { Fragment, useState } from "react";
 import type { FunnelRuntimeTransition } from "@/lib/analytics/analytics-runtime";
 
 import styles from "./funnel-journey-track.module.css";
-import { getJourneyMotionStyle } from "./funnel-journey-motion";
+import {
+  getFunnelConversionFillStyle,
+  getJourneyMotionStyle,
+} from "./funnel-journey-motion";
 
 function formatPercentage(value: number) {
   return `${value.toFixed(1)}%`;
@@ -129,6 +132,19 @@ export function FunnelJourneyTrack({
                       {transition.dropOffUsers}
                     </p>
                   </div>
+                </div>
+                <div
+                  className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#edf0f5]"
+                  aria-hidden="true"
+                >
+                  <div
+                    className={`${styles.conversionFill} h-full rounded-full ${
+                      isPrimary ? "bg-[#c44242]" : "bg-[#3559e8]"
+                    }`}
+                    style={getFunnelConversionFillStyle(
+                      transition.completionRate,
+                    )}
+                  />
                 </div>
                 <p className="mt-auto truncate text-[10px] text-[#98a1b1]">
                   {transition.eventNames.join(", ")}
