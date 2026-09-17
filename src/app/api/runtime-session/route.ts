@@ -62,10 +62,6 @@ export async function POST(request: Request) {
   }
 
   const lookup = await lookupDatasetSession(datasetModeSessionId);
-  const datasetStatus =
-    lookup.status === "missing-invalid"
-      ? "temporarily-unavailable"
-      : lookup.status;
   const remainingSeconds =
     lookup.status === "ready"
       ? Math.max(
@@ -90,7 +86,7 @@ export async function POST(request: Request) {
       ready: true,
       runtimeSessionId: datasetModeSessionId,
       mode: "dataset",
-      datasetStatus,
+      datasetStatus: lookup.status,
       ...(lookup.status === "ready"
         ? {
             datasetIdentity: lookup.session.datasetIdentity,

@@ -41,7 +41,8 @@ export type DatasetOverviewStatus = "idle" | "loading" | "ready" | "error";
 export type DatasetSessionStatus =
   | "ready"
   | "expired"
-  | "temporarily-unavailable";
+  | "temporarily-unavailable"
+  | "missing-invalid";
 
 export type SemanticReviewDraft = {
   snapshotId: string;
@@ -198,6 +199,7 @@ export function DatasetWorkspaceSessionProvider({
   const [runtimeBootstrapError, setRuntimeBootstrapError] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resettingSession, setResettingSession] = useState(false);
+  const resetInFlight = useRef(false);
   const [isRuntimeTransitionPending, startRuntimeTransition] = useTransition();
   const [status, setStatus] = useState<WorkspaceStatus>("idle");
   const [dataset, setDataset] = useState<Dataset | null>(null);
@@ -273,7 +275,8 @@ export function DatasetWorkspaceSessionProvider({
         const restoredDatasetStatus =
           payload.datasetStatus === "ready" ||
           payload.datasetStatus === "expired" ||
-          payload.datasetStatus === "temporarily-unavailable"
+          payload.datasetStatus === "temporarily-unavailable" ||
+          payload.datasetStatus === "missing-invalid"
             ? payload.datasetStatus
             : null;
 
@@ -438,6 +441,11 @@ export function DatasetWorkspaceSessionProvider({
   }, [dataset, requestDatasetOverview, semanticSchema, sourceFile]);
 
   const resetDatasetSession = useCallback(async () => {
+    if (resetInFlight.current) {
+      return;
+    }
+
+    resetInFlight.current = true;
     setResettingSession(true);
     setResetError(null);
 
@@ -481,6 +489,7 @@ export function DatasetWorkspaceSessionProvider({
     } catch {
       setResetError("The Dataset session could not be reset. Please try again.");
     } finally {
+      resetInFlight.current = false;
       setResettingSession(false);
     }
   }, [router]);
@@ -625,16 +634,66 @@ export function DatasetWorkspaceSessionProvider({
             Dataset temporarily unavailable
           </h1>
           <p className="mt-2 text-sm leading-6 text-[#6f7a8e]">
-            Shared session storage could not be reached. Dataset Mode remains
-            active and no Demo data will be shown.
+            We couldn&apos;t reach the shared session storage. Retry, or start a
+            new session if you no longer need the current Dataset session.
           </p>
-          <button
-            type="button"
-            className="mt-6 inline-flex h-9 items-center rounded-lg border border-[#d8dde7] bg-white px-4 text-sm font-semibold text-[#465268] transition-colors hover:bg-[#f8f9fb]"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-lg border border-[#d8dde7] bg-white px-4 text-sm font-semibold text-[#465268] transition-colors hover:bg-[#f8f9fb] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={resettingSession}
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#294bd1] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={resettingSession}
+              onClick={() => void resetDatasetSession()}
+            >
+              {resettingSession ? "Starting..." : "Start new session"}
+            </button>
+          </div>
+          {resetError ? (
+            <p className="mt-3 text-xs text-[#b94a48]">{resetError}</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (datasetMode && datasetSessionStatus === "missing-invalid") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-6 text-center">
+        <div className="max-w-md rounded-xl border border-[#e3e7ee] bg-white px-8 py-9 shadow-sm">
+          <h1 className="text-lg font-semibold text-[#263247]">
+            Dataset session could not be recovered
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#6f7a8e]">
+            The current Dataset session is incomplete or no longer recoverable.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-lg bg-[#3559e8] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#294bd1] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={resettingSession}
+              onClick={() => void resetDatasetSession()}
+            >
+              {resettingSession ? "Starting..." : "Start new session"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-lg border border-[#d8dde7] bg-white px-4 text-sm font-semibold text-[#465268] transition-colors hover:bg-[#f8f9fb] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={resettingSession}
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+          </div>
+          {resetError ? (
+            <p className="mt-3 text-xs text-[#b94a48]">{resetError}</p>
+          ) : null}
         </div>
       </div>
     );
