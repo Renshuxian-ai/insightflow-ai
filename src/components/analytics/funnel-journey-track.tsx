@@ -26,7 +26,7 @@ export function FunnelJourneyTrack({
   >(null);
 
   return (
-    <div className="mt-5 w-full min-w-0 max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-[#cbd5e1] [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-thumb:hover]:bg-[#94a3b8] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+    <div className="mt-5 w-full min-w-0 max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 pt-1 [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-[#cbd5e1] [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-thumb:hover]:bg-[#94a3b8] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
       <div className="flex w-max min-w-max items-stretch">
         {transitions.map((transition, index) => {
           const isPrimary = transition.id === primaryTransitionId;
@@ -73,7 +73,7 @@ export function FunnelJourneyTrack({
                 onBlur={() => setActiveTransitionIndex(null)}
                 className={`${styles.journeyItem} ${styles.transitionCard} ${
                   isPrimary ? styles.primaryCard : ""
-                } ${isActive ? styles.activeCard : ""} flex h-[250px] w-[200px] min-w-[200px] max-w-[200px] flex-none flex-col rounded-lg border p-4 ${
+                } ${isActive ? styles.activeCard : ""} flex w-[200px] min-w-[200px] max-w-[200px] flex-none flex-col rounded-lg border p-4 ${
                   isPrimary
                     ? "border-[#efcaca] bg-[#fff7f7]"
                     : "border-[#e7eaf0] bg-white"
@@ -94,59 +94,63 @@ export function FunnelJourneyTrack({
                     Transition
                   </p>
                 </div>
-                <h3 className="mt-3 min-h-10 break-words text-xs font-semibold leading-5 text-[#344056]">
+                <h3 className="mt-3 min-h-10 break-words [overflow-wrap:anywhere] text-xs font-semibold leading-5 text-[#344056]">
                   {transition.fromStep} → {transition.toStep}
                 </h3>
-                <div className="mt-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a1b1]">
-                    Observed users
-                  </p>
-                  <p
-                    className={`${styles.metricReveal} mt-1 text-2xl font-semibold ${
-                      isPrimary ? "text-[#c44242]" : "text-[#172033]"
-                    }`}
-                  >
-                    {transition.users.toLocaleString("en-US")}
-                  </p>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                <div className={styles.transitionDetails}>
                   <div>
-                    <p className="text-[#98a1b1]">Completion</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a1b1]">
+                      Observed users
+                    </p>
                     <p
-                      className={`${styles.metricReveal} mt-1 font-semibold ${
-                        isPrimary ? "text-[#c44242]" : "text-[#344056]"
+                      className={`${styles.metricReveal} mt-1 text-2xl font-semibold ${
+                        isPrimary ? "text-[#c44242]" : "text-[#172033]"
                       }`}
                     >
-                      {formatPercentage(transition.completionRate)}
+                      {transition.users.toLocaleString("en-US")}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-[#98a1b1]">Drop-off</p>
-                    <p
-                      className={`${styles.metricReveal} ${
-                        isPrimary ? styles.primaryDropoffValue : ""
-                      } mt-1 font-semibold ${
-                        isPrimary ? "text-[#c44242]" : "text-[#344056]"
-                      }`}
-                    >
-                      {transition.dropOffUsers}
-                    </p>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-[#98a1b1]">Completion</p>
+                      <p
+                        className={`${styles.metricReveal} mt-1 font-semibold ${
+                          isPrimary ? "text-[#c44242]" : "text-[#344056]"
+                        }`}
+                      >
+                        {formatPercentage(transition.completionRate)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[#98a1b1]">Drop-off</p>
+                      <p
+                        className={`${styles.metricReveal} ${
+                          isPrimary ? styles.primaryDropoffValue : ""
+                        } mt-1 font-semibold ${
+                          isPrimary ? "text-[#c44242]" : "text-[#344056]"
+                        }`}
+                      >
+                        {transition.dropOffUsers}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div
-                  className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#edf0f5]"
-                  aria-hidden="true"
-                >
                   <div
-                    className={`${styles.conversionFill} h-full rounded-full ${
-                      isPrimary ? "bg-[#c44242]" : "bg-[#3559e8]"
-                    }`}
-                    style={getFunnelConversionFillStyle(
-                      transition.completionRate,
-                    )}
-                  />
+                    className={`${styles.progressTrack} h-1.5 w-full overflow-hidden rounded-full bg-[#edf0f5]`}
+                    aria-hidden="true"
+                  >
+                    <div
+                      className={`${styles.conversionFill} h-full rounded-full ${
+                        isPrimary ? "bg-[#c44242]" : "bg-[#3559e8]"
+                      }`}
+                      style={getFunnelConversionFillStyle(
+                        transition.completionRate,
+                      )}
+                    />
+                  </div>
                 </div>
-                <p className="mt-auto truncate text-[10px] text-[#98a1b1]">
+                <p
+                  className={`${styles.stepLabel} text-[10px] text-[#98a1b1]`}
+                >
                   {transition.eventNames.join(", ")}
                 </p>
               </article>

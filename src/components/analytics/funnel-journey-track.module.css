@@ -10,12 +10,32 @@
 }
 
 .transitionCard {
+  min-height: 18rem;
   outline: none;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
     background-color 180ms ease;
+}
+
+.transitionDetails {
+  display: grid;
+  row-gap: 1rem;
+  margin-top: 1rem;
+}
+
+.progressTrack {
+  flex-shrink: 0;
+  min-height: 0.375rem;
+}
+
+.stepLabel {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 1rem;
+  overflow-wrap: anywhere;
+  line-height: 1rem;
 }
 
 .transitionCard:hover,
