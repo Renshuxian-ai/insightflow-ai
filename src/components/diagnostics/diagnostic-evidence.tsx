@@ -28,53 +28,53 @@ export function DiagnosticEvidence({
 
   return (
     <section
-      className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
+      className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6 lg:p-3"
       aria-labelledby="diagnostic-evidence-title"
     >
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8] lg:text-[10px]">
             Evidence
           </p>
           <h2
             id="diagnostic-evidence-title"
-            className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033]"
+            className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033] lg:mt-0.5 lg:text-[13px]"
           >
             Evidence supporting this finding
           </h2>
         </div>
-        <p className="text-xs text-[#8a94a6]">
+        <p className="text-xs text-[#8a94a6] lg:text-[11px]">
           {isDatasetCase
             ? "Calculated from the uploaded dataset."
             : "Connected behavior and feedback signals."}
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3" aria-label="Evidence summary">
-        <article className="rounded-lg border border-[#dfe4f2] bg-[#f8f9ff] p-4">
+      <div className="mt-4 grid gap-3 md:grid-cols-3 lg:mt-2 lg:gap-2" aria-label="Evidence summary">
+        <article className="rounded-lg border border-[#dfe4f2] bg-[#f8f9ff] p-4 lg:p-2.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#6072b8]">
             Metric evidence
           </p>
-          <p className="mt-2 text-sm font-semibold text-[#263247]">
+          <p className="mt-2 text-sm font-semibold text-[#263247] lg:mt-0.5 lg:text-xs">
             {metric.currentValue}
             {metric.previousValue ? ` vs ${metric.previousValue}` : ""}
           </p>
-          <p className="mt-1 text-xs leading-5 text-[#778196]">
+          <p className="mt-1 text-xs leading-5 text-[#778196] lg:mt-0.5 lg:text-[11px] lg:leading-4">
             {metric.comparison}
           </p>
         </article>
 
-        <article className="rounded-lg border border-[#d9ebe1] bg-[#f5fbf7] p-4">
+        <article className="rounded-lg border border-[#d9ebe1] bg-[#f5fbf7] p-4 lg:p-2.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#51806a]">
             {isDatasetCase
               ? "Dataset calculation evidence"
               : "Connected signal evidence"}
           </p>
-          <p className="mt-2 text-sm font-semibold text-[#315b48]">
+          <p className="mt-2 text-sm font-semibold text-[#315b48] lg:mt-0.5 lg:text-xs">
             {evidence.behaviorSignals.length} quantitative signal
             {evidence.behaviorSignals.length === 1 ? "" : "s"}
           </p>
-          <p className="mt-1 text-xs leading-5 text-[#668171]">
+          <p className="mt-1 text-xs leading-5 text-[#668171] lg:mt-0.5 lg:text-[11px] lg:leading-4">
             {isDatasetCase
               ? "Deterministic metric calculations completed."
               : `${evidence.feedbackSignals.length} qualitative signal${
@@ -83,15 +83,15 @@ export function DiagnosticEvidence({
           </p>
         </article>
 
-        <article className="rounded-lg border border-[#e3e7ee] bg-[#fafbfc] p-4">
+        <article className="rounded-lg border border-[#e3e7ee] bg-[#fafbfc] p-4 lg:p-2.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#7e8798]">
             Available context / limitations
           </p>
-          <p className="mt-2 text-sm font-semibold text-[#526078]">
+          <p className="mt-2 text-sm font-semibold text-[#526078] lg:mt-0.5 lg:text-xs">
             {availableContext.map(([, item]) => item.label).join(" · ") ||
               "No additional context"}
           </p>
-          <p className="mt-1 text-xs leading-5 text-[#778196]">
+          <p className="mt-1 text-xs leading-5 text-[#778196] lg:mt-0.5 lg:text-[11px] lg:leading-4">
             {limitations.length > 0
               ? limitations.join(" · ")
               : "No missing evidence is identified in this case."}
@@ -99,8 +99,8 @@ export function DiagnosticEvidence({
         </article>
       </div>
 
-      <details className="group mt-4 rounded-lg border border-[#e7eaf0] bg-[#fafbfc]">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-sm font-semibold text-[#465268] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] [&::-webkit-details-marker]:hidden">
+      <details className="group mt-4 rounded-lg border border-[#e7eaf0] bg-[#fafbfc] lg:mt-2">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-sm font-semibold text-[#465268] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] lg:px-2.5 lg:py-2 lg:text-xs [&::-webkit-details-marker]:hidden">
           <span>View all evidence</span>
           <span
             className="text-base text-[#7e8798] transition-transform group-open:rotate-180"
@@ -110,8 +110,8 @@ export function DiagnosticEvidence({
           </span>
         </summary>
 
-        <div className="grid gap-4 border-t border-[#e7eaf0] p-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-[#e7eaf0] bg-white p-4">
+        <div className="grid gap-4 border-t border-[#e7eaf0] p-4 lg:gap-3 lg:p-3 xl:grid-cols-2">
+          <div className="rounded-lg border border-[#e7eaf0] bg-white p-4 lg:p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#98a1b1]">
@@ -130,7 +130,7 @@ export function DiagnosticEvidence({
               {evidence.behaviorSignals.map((signal) => (
                 <article
                   key={signal.id}
-                  className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4"
+                  className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 lg:p-3"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -157,7 +157,7 @@ export function DiagnosticEvidence({
           </div>
 
           {evidence.feedbackSignals.length > 0 ? (
-            <div className="rounded-lg border border-[#e7eaf0] bg-white p-4">
+            <div className="rounded-lg border border-[#e7eaf0] bg-white p-4 lg:p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#98a1b1]">
@@ -176,7 +176,7 @@ export function DiagnosticEvidence({
                 {evidence.feedbackSignals.map((signal) => (
                   <article
                     key={signal.id}
-                    className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4"
+                    className="rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 lg:p-3"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -218,7 +218,7 @@ export function DiagnosticEvidence({
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-[#e7eaf0] bg-white p-4 xl:col-span-2">
+          <div className="rounded-lg border border-[#e7eaf0] bg-white p-4 lg:p-3 xl:col-span-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#98a1b1]">
               Context used
             </p>

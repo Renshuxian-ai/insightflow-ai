@@ -25,32 +25,32 @@ export function ExistingInvestigationNotice({
   }).format(new Date(investigation.createdAt));
 
   return (
-    <section className="rounded-xl border border-[#d8e0ff] bg-[#f7f9ff] px-5 py-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5269c9]">
+    <section className="rounded-xl border border-[#d8e0ff] bg-[#f7f9ff] px-5 py-4 lg:px-3 lg:py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5269c9] lg:text-[10px]">
         Existing investigation found
       </p>
-      <p className="mt-1 text-sm leading-6 text-[#526078]">
+      <p className="mt-1 text-sm leading-6 text-[#526078] lg:text-[11px] lg:leading-4">
         This Dataset signal already has an investigation created on {createdAt}.
         Its current status is {investigation.status}.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href={investigation.investigationHref}
-          className="inline-flex h-8 items-center rounded-lg border border-[#c6d1fb] bg-white px-3 text-xs font-semibold text-[#3559e8] transition-colors hover:bg-[#edf1ff]"
+          className="inline-flex h-8 items-center rounded-lg border border-[#c6d1fb] bg-white px-3 text-xs font-semibold text-[#3559e8] transition-colors hover:bg-[#edf1ff] lg:h-[30px] lg:text-[11px]"
         >
           View existing investigation
         </Link>
         {investigation.reportHref ? (
           <Link
             href={investigation.reportHref}
-            className="inline-flex h-8 items-center rounded-lg border border-[#c6d1fb] bg-white px-3 text-xs font-semibold text-[#3559e8] transition-colors hover:bg-[#edf1ff]"
+            className="inline-flex h-8 items-center rounded-lg border border-[#c6d1fb] bg-white px-3 text-xs font-semibold text-[#3559e8] transition-colors hover:bg-[#edf1ff] lg:h-[30px] lg:text-[11px]"
           >
             View report
           </Link>
         ) : null}
         <InvestigationLaunchLink
           href={investigation.newRunHref}
-          className="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-[#526078] transition-colors hover:bg-white hover:text-[#263247]"
+          className="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-[#526078] transition-colors hover:bg-white hover:text-[#263247] lg:h-[30px] lg:text-[11px]"
         >
           Run new investigation
         </InvestigationLaunchLink>

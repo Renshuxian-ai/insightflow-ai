@@ -45,7 +45,7 @@ export function DiagnosticsPage({
   ].join(":");
 
   return (
-    <main className="mx-auto w-full max-w-[1480px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9 xl:pr-[13rem]">
+    <main className="desktop-density-page mx-auto w-full px-5 py-7 sm:px-7 lg:px-[var(--page-padding-x)] lg:py-[var(--page-padding-y)] xl:pr-40">
       <DiagnosticStepNav />
       <DiagnosticHeader
         diagnosticCase={diagnosticCase}
@@ -53,7 +53,7 @@ export function DiagnosticsPage({
         returnTarget={returnTarget}
       />
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-6 lg:mt-3 lg:space-y-3">
         {existingInvestigation ? (
           <ExistingInvestigationNotice investigation={existingInvestigation} />
         ) : null}

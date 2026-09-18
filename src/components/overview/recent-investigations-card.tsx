@@ -28,17 +28,17 @@ export function RecentInvestigationsCard({
 }) {
   return (
     <section
-      className="flex h-[360px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]"
+      className="flex h-[360px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[248px] lg:p-[var(--card-padding-lg)]"
       aria-labelledby="recent-investigations-title"
     >
-      <div className="flex shrink-0 items-center justify-between gap-4">
+      <div className="flex shrink-0 items-center justify-between gap-4 lg:gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1] lg:text-[10px]">
             Analysis activity
           </p>
           <h2
             id="recent-investigations-title"
-            className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]"
+            className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033] lg:mt-0.5 lg:text-[13px]"
           >
             Recent investigations
           </h2>
@@ -53,26 +53,26 @@ export function RecentInvestigationsCard({
       </div>
 
       {investigations.length === 0 ? (
-        <div className="mt-4 grid min-h-0 flex-1 place-items-center rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-5 text-center">
+        <div className="mt-4 grid min-h-0 flex-1 place-items-center rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-5 text-center lg:mt-2 lg:px-3">
           <div>
-            <p className="text-sm font-semibold text-[#526078]">
+            <p className="text-sm font-semibold text-[#526078] lg:text-xs">
               No investigations yet
             </p>
-            <p className="mt-1 text-xs leading-5 text-[#8a94a6]">
+            <p className="mt-1 text-xs leading-5 text-[#8a94a6] lg:text-[11px] lg:leading-4">
               Investigate a detected signal to start AI analysis.
             </p>
           </div>
         </div>
       ) : (
         <div
-          className={`mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-1 ${overviewScrollRegionClassName}`}
+          className={`mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-1 lg:mt-1.5 lg:space-y-1 ${overviewScrollRegionClassName}`}
         >
           {investigations.map((investigation) => (
             <Link
               key={investigation.id}
               href={investigation.href}
               prefetch={false}
-              className="block rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-3.5 py-3 transition-colors hover:border-[#d7ddea] hover:bg-white"
+              className="block rounded-lg border border-[#e9ecf1] bg-[#fafbfc] px-3.5 py-3 transition-colors hover:border-[#d7ddea] hover:bg-white lg:px-2.5 lg:py-2"
             >
               <div className="flex items-center justify-between gap-3">
                 <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a94a6]">
@@ -84,7 +84,7 @@ export function RecentInvestigationsCard({
                   {investigation.status}
                 </span>
               </div>
-              <h3 className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-[#344056]">
+              <h3 className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-[#344056] lg:mt-1 lg:text-xs lg:leading-4">
                 {investigation.title}
               </h3>
             </Link>

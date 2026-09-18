@@ -162,9 +162,9 @@ export function DiagnosticStepNav() {
   );
 
   return (
-    <aside className="fixed top-1/2 right-5 z-30 hidden w-44 -translate-y-1/2 xl:block">
+    <aside className="fixed top-1/2 right-3 z-30 hidden w-36 -translate-y-1/2 xl:block">
       <nav aria-label="诊断流程导航">
-        <ol className="space-y-1">
+        <ol className="space-y-0.5">
           {diagnosticSteps.map((step, index) => {
             const isAvailable = availableTargetIds.has(step.targetId);
             const isActive = isAvailable && activeTargetId === step.targetId;
@@ -175,7 +175,7 @@ export function DiagnosticStepNav() {
                 key={step.targetId}
                 className={`relative ${
                   index < diagnosticSteps.length - 1
-                    ? "after:absolute after:top-1/2 after:left-[17.5px] after:h-[calc(100%+4px)] after:w-px after:content-['']"
+                    ? "after:absolute after:top-1/2 after:left-[17px] after:h-[calc(100%+2px)] after:w-px after:content-['']"
                     : ""
                 } ${
                   index < activeStepIndex
@@ -187,8 +187,9 @@ export function DiagnosticStepNav() {
                   type="button"
                   disabled={!isAvailable}
                   aria-current={isActive ? "step" : undefined}
+                  title={step.label}
                   onClick={() => scrollToStep(step.targetId)}
-                  className={`group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-2 text-left text-xs transition-[background-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8298ef] ${
+                  className={`group relative flex min-h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[11px] leading-4 transition-[background-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8298ef] ${
                     isActive
                       ? "bg-[#f2f5ff] font-semibold text-[#2949ca]"
                       : isPast
@@ -199,7 +200,7 @@ export function DiagnosticStepNav() {
                   }`}
                 >
                   <span
-                    className={`relative z-10 grid size-5 shrink-0 place-items-center rounded-full border transition-[border-color,background-color,box-shadow] duration-150 ${
+                    className={`relative z-10 grid size-4.5 shrink-0 place-items-center rounded-full border transition-[border-color,background-color,box-shadow] duration-150 ${
                       isActive
                         ? "border-[#3559e8] bg-white shadow-[0_0_0_4px_rgba(53,89,232,0.10)]"
                         : isPast
@@ -222,7 +223,7 @@ export function DiagnosticStepNav() {
                       }`}
                     />
                   </span>
-                  <span className="leading-5">{step.label}</span>
+                  <span className="min-w-0 whitespace-nowrap">{step.label}</span>
                 </button>
               </li>
             );

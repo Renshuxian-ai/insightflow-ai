@@ -406,20 +406,20 @@ export function InvestigationAssistant({
 
   return (
     <section
-      className="rounded-xl border border-[#dce3fb] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
+      className="rounded-xl border border-[#dce3fb] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6 lg:p-[var(--card-padding-lg)]"
       aria-labelledby="investigation-assistant-title"
     >
       <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8] lg:text-[10px]">
           Investigation workflow
         </p>
         <h2
           id="investigation-assistant-title"
-          className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033]"
+          className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033] lg:mt-0.5 lg:text-[13px]"
         >
           Decide what to investigate next
         </h2>
-        <p className="mt-1.5 text-sm leading-6 text-[#68758b]">
+        <p className="mt-1.5 text-sm leading-6 text-[#68758b] lg:mt-0.5 lg:text-[11px] lg:leading-4">
           Start from a recommended direction, then create an evidence-linked
           draft for human review. The workflow does not make a causal
           conclusion.
@@ -430,12 +430,12 @@ export function InvestigationAssistant({
         <NextValidation actions={diagnosticCase.nextValidations} />
       ) : null}
 
-      <div className="mt-5 flex flex-col justify-between gap-4 border-t border-[#e7eaf0] pt-5 sm:flex-row sm:items-center">
+      <div className="mt-5 flex flex-col justify-between gap-4 border-t border-[#e7eaf0] pt-5 sm:flex-row sm:items-center lg:mt-3 lg:gap-3 lg:pt-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#6072b8]">
             {result ? "Refresh draft" : "Step 2 · Create a draft"}
           </p>
-          <p className="mt-1 text-xs leading-5 text-[#778196]">
+          <p className="mt-1 text-xs leading-5 text-[#778196] lg:text-[11px] lg:leading-4">
             {result
               ? `${result.evidenceUsed.length} evidence references used in the current draft.`
               : `${diagnosticCase.evidence.behaviorSignals.length + diagnosticCase.evidence.feedbackSignals.length} evidence signals are available for this case.`}
@@ -444,7 +444,7 @@ export function InvestigationAssistant({
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
           <button
             type="button"
-            className="inline-flex min-h-10 w-full shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] disabled:cursor-not-allowed disabled:bg-[#9cacef] sm:w-fit"
+            className="inline-flex min-h-10 w-full shrink-0 items-center justify-center rounded-lg bg-[#3559e8] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2949ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8] disabled:cursor-not-allowed disabled:bg-[#9cacef] sm:w-fit lg:min-h-[30px] lg:px-3 lg:py-1.5 lg:text-[11px]"
             disabled={isGenerating}
             aria-busy={isGenerating}
             onClick={result ? handleRunNewInvestigation : handleGenerateInvestigation}

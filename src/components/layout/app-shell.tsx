@@ -23,7 +23,9 @@ export function AppShell({ children, activeNavigation = "overview" }: AppShellPr
             aria-hidden="true"
             className={[
               "hidden shrink-0 transition-[width] duration-200 lg:block",
-              sidebarCollapsed ? "w-[68px]" : "w-[248px]",
+              sidebarCollapsed
+                ? "w-[var(--sidebar-collapsed-width)]"
+                : "w-[var(--sidebar-width)]",
             ].join(" ")}
           />
         </>

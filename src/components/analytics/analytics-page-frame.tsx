@@ -26,8 +26,8 @@ export function AnalyticsPageFrame({
         : sourceLabel;
 
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
-      <header className="flex flex-col justify-between gap-5 border-b border-[#e6e9ef] pb-6 sm:flex-row sm:items-end">
+    <main className="desktop-density-page mx-auto w-full px-5 py-7 sm:px-7 lg:px-[var(--page-padding-x)] lg:py-[var(--page-padding-y)]">
+      <header className="flex flex-col justify-between gap-5 border-b border-[#e6e9ef] pb-6 sm:flex-row sm:items-end lg:gap-2 lg:pb-3">
         <div>
           <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-[#7e8798]">
@@ -38,10 +38,10 @@ export function AnalyticsPageFrame({
             </span>
             <p className="text-xs font-medium text-[#4e5a70]">{title}</p>
           </div>
-          <h1 className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-[#172033]">
+          <h1 className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-[#172033] lg:mt-1.5 lg:text-[21px]">
             {title}
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-5 text-[#6f7a8e]">
+          <p className="mt-1.5 max-w-2xl text-sm leading-5 text-[#6f7a8e] lg:mt-1 lg:text-[13px] lg:leading-[18px]">
             {description}
           </p>
         </div>
@@ -101,17 +101,17 @@ export function AnalyticsSummaryCard({
   const toneStyles = summaryToneStyles[tone];
 
   return (
-    <article className="min-w-0 rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
-      <p className="truncate text-[13px] font-medium text-[#657084]">
+    <article className="min-w-0 rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:min-h-[112px] lg:p-[var(--card-padding)]">
+      <p className="truncate text-[13px] font-medium text-[#657084] lg:text-[11px]">
         {label}
       </p>
       <p
-        className={`mt-3 truncate text-[25px] font-semibold tracking-[-0.04em] ${toneStyles.value}`}
+        className={`mt-3 truncate text-[25px] font-semibold tracking-[-0.04em] lg:mt-2 lg:text-[21px] ${toneStyles.value}`}
       >
         {value}
       </p>
       {detail ? (
-        <p className="mt-2 truncate text-xs text-[#98a1b1]" title={detail}>
+        <p className="mt-2 truncate text-xs text-[#98a1b1] lg:text-[11px]" title={detail}>
           {detail}
         </p>
       ) : null}
@@ -127,9 +127,9 @@ export function AnalyticsSectionHeader({
   meta?: string;
 }) {
   return (
-    <div className="mb-2.5 flex items-center justify-between gap-4">
-      <h2 className="text-sm font-semibold text-[#344056]">{title}</h2>
-      {meta ? <p className="text-xs text-[#98a1b1]">{meta}</p> : null}
+    <div className="mb-2.5 flex items-center justify-between gap-4 lg:mb-1.5 lg:gap-3">
+      <h2 className="text-sm font-semibold text-[#344056] lg:text-[13px]">{title}</h2>
+      {meta ? <p className="text-xs text-[#98a1b1] lg:text-[11px]">{meta}</p> : null}
     </div>
   );
 }
@@ -168,14 +168,14 @@ export function AnalyticsMetricGroup({
         return (
           <div
             key={item.label}
-            className="border-t border-[#eef0f4] px-4 py-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0"
+            className="border-t border-[#eef0f4] px-4 py-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0 lg:px-2.5 lg:py-2.5"
           >
-            <p className="text-[13px] font-medium text-[#657084]">
+            <p className="text-[13px] font-medium text-[#657084] lg:text-[11px]">
               {item.label}
             </p>
             <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <p
-                className={`text-[23px] font-semibold tracking-[-0.04em] ${metricToneStyles[tone]}`}
+                className={`text-[23px] font-semibold tracking-[-0.04em] lg:text-xl ${metricToneStyles[tone]}`}
               >
                 {item.value}
               </p>
@@ -210,7 +210,7 @@ export function AnalyticsStatus({
 }) {
   return (
     <section
-      className="mt-6 rounded-xl border border-[#e7eaf0] bg-white px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]"
+      className="mt-6 rounded-xl border border-[#e7eaf0] bg-white px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:px-[var(--card-padding-lg)] lg:py-[var(--card-padding-lg)]"
       aria-live="polite"
     >
       <div className="flex items-start gap-3">

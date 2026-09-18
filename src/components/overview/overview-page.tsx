@@ -71,8 +71,8 @@ export function OverviewPage({
   });
 
   return (
-    <main id="overview" className="mx-auto w-full max-w-[1440px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
-      <div className="flex flex-col justify-between gap-5 border-b border-[#e6e9ef] pb-6 xl:flex-row xl:items-end">
+    <main id="overview" className="desktop-density-page mx-auto w-full px-5 py-7 sm:px-7 lg:px-[var(--page-padding-x)] lg:py-[var(--page-padding-y)]">
+      <div className="flex flex-col justify-between gap-5 border-b border-[#e6e9ef] pb-6 lg:gap-2 lg:pb-3 xl:flex-row xl:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7e8798]">
             <span>Workspace</span>
@@ -88,8 +88,8 @@ export function OverviewPage({
               {viewModel.sourceLabel}
             </span>
           </div>
-          <h1 className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-[#172033]">Overview</h1>
-          <p className="mt-1.5 text-sm text-[#6f7a8e]">
+          <h1 className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-[#172033] lg:mt-1.5 lg:text-[21px]">Overview</h1>
+          <p className="mt-1.5 text-sm text-[#6f7a8e] lg:mt-1 lg:text-[13px] lg:leading-[18px]">
             {viewModel.mode === "dataset" && viewModel.datasetName
               ? `Dataset: ${viewModel.datasetName}`
               : "A focused view of product health, emerging risks, and user signals."}
@@ -103,9 +103,9 @@ export function OverviewPage({
       ) : (
         <>
           <section className="mt-6" aria-label="Core product metrics">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#344056]">Core metrics</h2>
-              <p className="text-xs text-[#98a1b1]">
+            <div className="mb-3 flex items-center justify-between lg:mb-1.5">
+              <h2 className="text-sm font-semibold text-[#344056] lg:text-[13px]">Core metrics</h2>
+              <p className="text-xs text-[#98a1b1] lg:text-[11px]">
                 {viewModel.mode === "dataset"
                   ? "Calculated from uploaded data"
                   : "Updated 5 minutes ago"}
@@ -116,7 +116,7 @@ export function OverviewPage({
             </div>
           </section>
 
-          <section className="mt-6 grid gap-6 xl:grid-cols-3">
+          <section className="mt-6 grid gap-6 lg:gap-3 xl:grid-cols-3">
             <div className="xl:col-span-2">
               {viewModel.trend?.status === "available" ? (
                 <ProductTrendCard
@@ -127,23 +127,23 @@ export function OverviewPage({
                   data={viewModel.trend.data}
                 />
               ) : (
-                <section className="h-[420px] rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Product health</p>
-                  <h2 className="mt-1 text-base font-semibold text-[#172033]">Product trend</h2>
-                  <p className="mt-6 text-xl font-semibold text-[#687387]">Unavailable</p>
+                <section className="h-[420px] rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[288px] lg:p-[var(--card-padding-lg)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1] lg:text-[10px]">Product health</p>
+                  <h2 className="mt-1 text-base font-semibold text-[#172033] lg:mt-0.5 lg:text-[13px]">Product trend</h2>
+                  <p className="mt-6 text-xl font-semibold text-[#687387] lg:mt-4 lg:text-lg">Unavailable</p>
                   <p className="mt-2 text-xs leading-5 text-[#98a1b1]">
                     {viewModel.trend?.reason ?? "Daily DAU is not available."}
                   </p>
                 </section>
               )}
             </div>
-            <section className="flex h-[420px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]" aria-labelledby="anomalies-title">
+            <section className="flex h-[420px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[288px] lg:p-[var(--card-padding-lg)]" aria-labelledby="anomalies-title">
               <div className="shrink-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Where to look next</p>
-                <h2 id="anomalies-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]">{viewModel.anomalyTitle}</h2>
-                <p className="mt-1 text-[13px] text-[#778196]">{viewModel.anomalySummary}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1] lg:text-[10px]">Where to look next</p>
+                <h2 id="anomalies-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033] lg:mt-0.5 lg:text-[13px]">{viewModel.anomalyTitle}</h2>
+                <p className="mt-1 text-[13px] text-[#778196] lg:mt-0.5 lg:text-[11px]">{viewModel.anomalySummary}</p>
               </div>
-              <div className={`mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-1 ${overviewScrollRegionClassName}`}>
+              <div className={`mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-1 lg:mt-1.5 lg:space-y-1.5 ${overviewScrollRegionClassName}`}>
                 {viewModel.anomalies.length > 0 ? (
                   viewModel.anomalies.map((anomaly) => (
                     <AnomalyCard key={anomaly.id} anomaly={anomaly} />
@@ -158,7 +158,7 @@ export function OverviewPage({
             </section>
           </section>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <section className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-3">
             {viewModel.mode === "dataset" ? (
               <RecentInvestigationsCard
                 investigations={recentInvestigations}

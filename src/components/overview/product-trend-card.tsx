@@ -154,7 +154,7 @@ export function ProductTrendCard({
   change,
   changeDirection,
   data,
-  heightClassName = "h-[420px]",
+  heightClassName = "h-[420px] lg:h-[288px]",
 }: ProductTrendCardProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const chartId = useId().replaceAll(":", "");
@@ -175,21 +175,21 @@ export function ProductTrendCard({
         : "text-[#687387]";
 
   return (
-    <section className={`flex min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] ${heightClassName}`} aria-labelledby="product-trend-title">
-      <div className="flex items-start justify-between gap-4">
+    <section className={`flex min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:p-[var(--card-padding-lg)] ${heightClassName}`} aria-labelledby="product-trend-title">
+      <div className="flex items-start justify-between gap-4 lg:gap-2">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">Product health</p>
-          <h2 id="product-trend-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]">Product trend</h2>
-          <p className="mt-1 text-[13px] text-[#778196]">{metricLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1] lg:text-[10px]">Product health</p>
+          <h2 id="product-trend-title" className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033] lg:mt-0.5 lg:text-[13px]">Product trend</h2>
+          <p className="mt-1 text-[13px] text-[#778196] lg:mt-0.5 lg:text-[11px]">{metricLabel}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-semibold tracking-[-0.03em] text-[#172033]">{latestValue}</p>
-          <p className={`text-xs font-medium ${changeClassName}`}>{change}</p>
+          <p className="text-lg font-semibold tracking-[-0.03em] text-[#172033] lg:text-[15px]">{latestValue}</p>
+          <p className={`text-xs font-medium lg:text-[11px] ${changeClassName}`}>{change}</p>
         </div>
       </div>
 
-      <div className="mt-5 min-h-0 flex-1">
-        <div className="relative h-[230px] w-full">
+      <div className="mt-5 min-h-0 flex-1 lg:mt-2">
+        <div className="relative h-[230px] w-full lg:h-[142px]">
         <svg viewBox="0 0 600 178" className="absolute inset-0 h-full w-full" preserveAspectRatio="none" role="img" aria-label={metricLabel}>
           <defs>
             <linearGradient id={fillGradientId} x1="0" x2="0" y1="0" y2="1">
@@ -261,7 +261,7 @@ export function ProductTrendCard({
           </div>
         ) : null}
         </div>
-        <div className="relative mt-2 h-5 text-[11px] text-[#98a1b1]">
+        <div className="relative mt-2 h-5 text-[11px] text-[#98a1b1] lg:mt-1 lg:h-4 lg:text-[10px]">
           {data.map((point, index) =>
             visibleLabelIndexes.has(index) ? (
               <span

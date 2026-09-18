@@ -117,12 +117,12 @@ export type NavigationSection =
 
 function NavigationIcon({ name }: { name: IconName }) {
   if (name === "upload") {
-    return <UploadIcon className="size-4 shrink-0" />;
+    return <UploadIcon className="size-3.5 shrink-0" />;
   }
 
   const commonProps = {
     "aria-hidden": true,
-    className: "size-4 shrink-0",
+    className: "size-3.5 shrink-0",
     fill: "none",
     stroke: "currentColor",
     strokeWidth: 1.8,
@@ -182,8 +182,8 @@ function SidebarLink({
       aria-label={collapsed ? label : undefined}
       title={collapsed ? label : undefined}
       className={[
-        "group relative flex h-9 items-center rounded-lg text-[13px] font-medium transition-colors",
-        collapsed ? "mx-auto w-10 justify-center px-0" : "gap-3 px-2.5",
+        "group relative flex h-[30px] items-center rounded-lg text-xs font-medium transition-colors",
+        collapsed ? "mx-auto w-10 justify-center px-0" : "gap-2 px-2",
         active
           ? "bg-[#edf1ff] text-[#3559e8]"
           : "text-[#657084] hover:bg-[#f6f7f9] hover:text-[#263247]",
@@ -207,19 +207,21 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
     <aside
       className={[
         "fixed top-0 left-0 z-30 hidden h-screen shrink-0 flex-col border-r border-[#e6e9ef] bg-white transition-[width] duration-200 lg:flex",
-        sidebarCollapsed ? "w-[68px]" : "w-[248px]",
+        sidebarCollapsed
+          ? "w-[var(--sidebar-collapsed-width)]"
+          : "w-[var(--sidebar-width)]",
       ].join(" ")}
     >
       <div
         className={[
-          "flex h-[76px] shrink-0 items-center border-b border-[#eef0f4]",
-          sidebarCollapsed ? "justify-center px-3" : "gap-3 px-5",
+          "flex h-14 shrink-0 items-center border-b border-[#eef0f4]",
+          sidebarCollapsed ? "justify-center px-2" : "gap-2 px-3",
         ].join(" ")}
       >
-        <div className="grid size-9 place-items-center rounded-xl bg-[#3559e8] text-xs font-bold tracking-tight text-white shadow-[0_6px_16px_rgba(53,89,232,0.22)]">IF</div>
+        <div className="grid size-8 place-items-center rounded-lg bg-[#3559e8] text-[11px] font-bold tracking-tight text-white shadow-[0_6px_16px_rgba(53,89,232,0.22)]">IF</div>
         <div className={sidebarCollapsed ? "hidden" : undefined}>
-          <p className="text-sm font-semibold tracking-[-0.01em] text-[#172033]">InsightFlow AI</p>
-          <p className="mt-0.5 text-[11px] text-[#7e8798]">
+          <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#172033]">InsightFlow AI</p>
+          <p className="text-[10px] text-[#7e8798]">
             {t("brand.tagline")}
           </p>
         </div>
@@ -230,7 +232,7 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
         onClick={toggleSidebar}
         aria-label={sidebarToggleLabel}
         title={sidebarToggleLabel}
-        className="absolute -right-3 top-16 z-20 grid size-6 place-items-center rounded-full border border-[#dfe3eb] bg-white text-[#7e8798] shadow-sm transition-colors hover:border-[#c8cfda] hover:text-[#3559e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3559e8]/30"
+        className="absolute -right-3 top-11 z-20 grid size-6 place-items-center rounded-full border border-[#dfe3eb] bg-white text-[#7e8798] shadow-sm transition-colors hover:border-[#c8cfda] hover:text-[#3559e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3559e8]/30"
       >
         <svg
           aria-hidden="true"
@@ -250,27 +252,27 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
 
       <nav
         className={[
-          "sidebar-scroll-region min-h-0 flex-1 py-4",
+          "sidebar-scroll-region min-h-0 flex-1 py-1.5",
           sidebarCollapsed
-            ? "overflow-visible px-2"
-            : "overflow-x-hidden overflow-y-auto px-3",
+            ? "overflow-visible px-1.5"
+            : "overflow-x-hidden overflow-y-auto px-2.5",
         ].join(" ")}
         aria-label={t("nav.primary")}
       >
         {navigationGroups.map((group, groupIndex) => (
           <div
             key={group.labelKey ?? "primary"}
-            className={groupIndex === 0 ? "" : sidebarCollapsed ? "mt-4" : "mt-6"}
+            className={groupIndex === 0 ? "" : "mt-3"}
           >
             {group.labelKey ? (
               sidebarCollapsed ? (
                 <div
-                  className="mx-auto mb-2 h-px w-7 bg-[#eef0f4]"
+                  className="mx-auto mb-1.5 h-px w-6 bg-[#eef0f4]"
                   aria-label={t(group.labelKey)}
                   role="separator"
                 />
               ) : (
-                <p className="px-2 pb-2 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">
+                <p className="px-2 pb-1 text-[10px] font-semibold tracking-[0.12em] text-[#9aa2b1]">
                   {t(group.labelKey)}
                 </p>
               )
@@ -290,9 +292,14 @@ export function Sidebar({ activeNavigation }: { activeNavigation: NavigationSect
         ))}
       </nav>
 
-      <div className="border-t border-[#eef0f4] p-3">
+      <div
+        className={[
+          "border-t border-[#eef0f4]",
+          sidebarCollapsed ? "p-1" : "p-1.5",
+        ].join(" ")}
+      >
         <LanguageSwitcher compact={sidebarCollapsed} />
-        <div className="mt-2">
+        <div className="mt-1">
           <SidebarLink
             item={{ labelKey: "nav.settings", icon: "settings", href: "#roadmap" }}
             label={t("nav.settings")}

@@ -161,7 +161,7 @@ function SignalCard({
         aria-pressed={selected}
         aria-label={`View evidence for ${signal.title}`}
         onClick={onSelect}
-        className="block w-full cursor-pointer p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#3559e8]/40"
+        className="block w-full cursor-pointer p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#3559e8]/40 lg:p-2"
       >
         <div className="min-w-0 pr-20">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -182,7 +182,7 @@ function SignalCard({
             {signal.title}
           </h3>
         </div>
-        <p className="mt-2 text-sm font-semibold text-[#263247]">
+        <p className="mt-2 text-sm font-semibold text-[#263247] lg:mt-1.5 lg:text-[13px]">
           {formatValue(signal.current, signal.unit)}{" "}
           <span
             className={
@@ -205,12 +205,12 @@ function SignalCard({
         <InvestigationLaunchLink
           href={investigateHref}
           ariaLabel={`Investigate ${signal.title}`}
-          className="absolute top-3 right-3 z-10 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]/30"
+          className="absolute top-3 right-3 z-10 text-xs font-semibold text-[#3559e8] transition-colors hover:text-[#2446cb] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3559e8]/30 lg:top-2.5 lg:right-2.5 lg:text-[11px]"
         >
           Investigate <span aria-hidden="true">→</span>
         </InvestigationLaunchLink>
       ) : (
-        <span className="absolute top-3 right-3 text-xs font-medium text-[#a1a8b5]">
+        <span className="absolute top-3 right-3 text-xs font-medium text-[#a1a8b5] lg:top-2.5 lg:right-2.5 lg:text-[11px]">
           Evidence only
         </span>
       )}
@@ -262,13 +262,13 @@ export function TrendsPage({
           }
         />
         <div className="grid overflow-hidden rounded-xl border border-[#e7eaf0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:grid-cols-2 xl:grid-cols-4">
-          <div className="px-4 py-4">
-            <p className="text-[13px] font-medium text-[#657084]">
+          <div className="px-4 py-4 lg:px-2.5 lg:py-2.5">
+            <p className="text-[13px] font-medium text-[#657084] lg:text-[11px]">
               Signal
             </p>
             <p
               id="key-finding-title"
-              className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#172033]"
+              className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#172033] lg:mt-1 lg:text-[13px]"
             >
               {selectedSignal?.title ?? "No signal detected"}
             </p>
@@ -277,9 +277,9 @@ export function TrendsPage({
               {runtime.signals.length === 1 ? "" : "s"}
             </p>
           </div>
-          <div className="border-t border-[#eef0f4] px-4 py-4 sm:border-l sm:border-t-0">
-            <p className="text-[13px] font-medium text-[#657084]">Change</p>
-            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#c44242]">
+          <div className="border-t border-[#eef0f4] px-4 py-4 sm:border-l sm:border-t-0 lg:px-2.5 lg:py-2.5">
+            <p className="text-[13px] font-medium text-[#657084] lg:text-[11px]">Change</p>
+            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#c44242] lg:mt-1 lg:text-[15px]">
               {selectedSignal
                 ? formatChange(
                     selectedSignal.change,
@@ -292,20 +292,20 @@ export function TrendsPage({
               {selectedSignal?.comparison ?? "No comparison available"}
             </p>
           </div>
-          <div className="border-t border-[#eef0f4] px-4 py-4 xl:border-l xl:border-t-0">
-            <p className="text-[13px] font-medium text-[#657084]">Context</p>
-            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#172033]">
+          <div className="border-t border-[#eef0f4] px-4 py-4 xl:border-l xl:border-t-0 lg:px-2.5 lg:py-2.5">
+            <p className="text-[13px] font-medium text-[#657084] lg:text-[11px]">Context</p>
+            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#172033] lg:mt-1 lg:text-[15px]">
               {selectedMetric?.contextLabel ?? "Not available"}
             </p>
             <p className="mt-1 text-xs text-[#98a1b1]">
               {mode === "demo" ? "Demo evidence scope" : "Dataset evidence scope"}
             </p>
           </div>
-          <div className="border-t border-[#eef0f4] px-4 py-4 sm:border-l xl:border-t-0">
-            <p className="text-[13px] font-medium text-[#657084]">
+          <div className="border-t border-[#eef0f4] px-4 py-4 sm:border-l xl:border-t-0 lg:px-2.5 lg:py-2.5">
+            <p className="text-[13px] font-medium text-[#657084] lg:text-[11px]">
               Diagnosis status
             </p>
-            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#3559e8]">
+            <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#3559e8] lg:mt-1 lg:text-[15px]">
               {hasSelectedInvestigation ? "Available" : "Evidence only"}
             </p>
             <p className="mt-1 text-xs text-[#98a1b1]">
@@ -319,7 +319,7 @@ export function TrendsPage({
         </div>
       </section>
 
-      <section className="mt-6 grid items-start gap-6 xl:grid-cols-3">
+      <section className="mt-6 grid items-start gap-6 lg:gap-3 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <AnalyticsSectionHeader
             title="Signal evidence"
@@ -331,7 +331,7 @@ export function TrendsPage({
               metric={selectedMetric}
             />
           ) : (
-            <div className="h-[448px] rounded-xl border border-[#e7eaf0] bg-white p-5 text-sm text-[#8a94a6]">
+            <div className="h-[448px] rounded-xl border border-[#e7eaf0] bg-white p-5 text-sm text-[#8a94a6] lg:h-[288px] lg:p-[var(--card-padding-lg)] lg:text-[13px]">
               Signal evidence is unavailable.
             </div>
           )}
@@ -342,11 +342,11 @@ export function TrendsPage({
             title="Detected signals"
             meta={`${runtime.signals.length} found`}
           />
-          <div className="flex h-[448px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
+          <div className="flex h-[448px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[288px] lg:p-[var(--card-padding-lg)]">
             <div
               className={`min-h-0 flex-1 overflow-y-auto pr-2 ${overviewScrollRegionClassName}`}
             >
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 lg:space-y-1.5">
                 {rankedSignals.length > 0 ? (
                   rankedSignals.map((signal) => (
                     <SignalCard
@@ -359,7 +359,7 @@ export function TrendsPage({
                     />
                   ))
                 ) : (
-                  <div className="rounded-lg bg-[#fafbfc] px-4 py-6 text-center">
+                  <div className="rounded-lg bg-[#fafbfc] px-4 py-6 text-center lg:py-5">
                     <p className="text-sm font-semibold text-[#526078]">
                       No anomaly detected
                     </p>
@@ -379,7 +379,7 @@ export function TrendsPage({
           title="Supporting evidence"
           meta="Other observed metrics"
         />
-        <div className="flex h-[392px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]">
+        <div className="flex h-[392px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[248px] lg:p-[var(--card-padding-lg)]">
           <div className="flex shrink-0 items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#98a1b1]">
@@ -387,7 +387,7 @@ export function TrendsPage({
               </p>
               <h2
                 id="supporting-evidence-title"
-                className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033]"
+                className="mt-1 text-base font-semibold tracking-[-0.02em] text-[#172033] lg:mt-0.5 lg:text-[13px]"
               >
                 Additional metric context
               </h2>
@@ -398,13 +398,13 @@ export function TrendsPage({
           </div>
 
           <div
-            className={`mt-3 min-h-0 flex-1 overflow-y-auto pr-2 ${overviewScrollRegionClassName}`}
+            className={`mt-3 min-h-0 flex-1 overflow-y-auto pr-2 lg:mt-2 ${overviewScrollRegionClassName}`}
           >
             <div className="divide-y divide-[#eef0f4]">
               {supportingTrends.map((trend: TrendRuntimeMetric) => (
               <article
                 key={trend.id}
-                className="flex min-h-[54px] flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                className="flex min-h-[54px] flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between lg:min-h-10 lg:py-1"
               >
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
@@ -444,7 +444,7 @@ export function TrendsPage({
               ))}
             </div>
             {runtime.unavailableEvidence.length > 0 ? (
-              <div className="mt-4 border-t border-[#eef0f4] pt-4">
+              <div className="mt-4 border-t border-[#eef0f4] pt-4 lg:mt-3 lg:pt-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98a1b1]">
                   Unavailable evidence
                 </p>

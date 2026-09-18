@@ -87,7 +87,7 @@ function ComparisonEvidence({
 
   return (
     <section
-      className="flex h-[448px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)]"
+      className="flex h-[448px] min-h-0 flex-col rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-[288px] lg:p-[var(--card-padding-lg)]"
       aria-label={`${copy.title}: ${signal.title}`}
     >
       <div className="shrink-0">
@@ -96,7 +96,7 @@ function ComparisonEvidence({
         </p>
         <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-[#172033]">
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-[#172033] lg:text-[13px]">
               {copy.title}
             </h2>
             <p className="mt-1 line-clamp-2 text-[13px] text-[#778196]">
@@ -109,13 +109,13 @@ function ComparisonEvidence({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center py-5">
-        <div className="grid w-full max-w-3xl items-stretch gap-3 sm:grid-cols-[minmax(0,1fr)_112px_minmax(0,1fr)] sm:gap-4">
-          <div className="flex min-h-24 flex-col justify-center rounded-xl border border-[#e5e8ee] bg-[#fafbfc] px-4 py-3 sm:min-h-32 sm:px-5 sm:py-4">
+      <div className="flex min-h-0 flex-1 items-center justify-center py-5 lg:py-2">
+        <div className="grid w-full max-w-3xl items-stretch gap-3 sm:grid-cols-[minmax(0,1fr)_112px_minmax(0,1fr)] sm:gap-4 lg:gap-3">
+          <div className="flex min-h-24 flex-col justify-center rounded-xl border border-[#e5e8ee] bg-[#fafbfc] px-4 py-3 sm:min-h-32 sm:px-5 sm:py-4 lg:min-h-20 lg:px-2.5 lg:py-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a94a6]">
               {previous.label}
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#526078] sm:mt-3 sm:text-3xl">
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#526078] sm:mt-3 sm:text-3xl lg:mt-2 lg:text-2xl">
               {formatValue(previous.value, metric.unit)}
             </p>
             <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#8a94a6]">
@@ -134,11 +134,11 @@ function ComparisonEvidence({
             </p>
           </div>
 
-          <div className="flex min-h-24 flex-col justify-center rounded-xl border border-[#dce3fb] bg-[#f7f9ff] px-4 py-3 sm:min-h-32 sm:px-5 sm:py-4">
+          <div className="flex min-h-24 flex-col justify-center rounded-xl border border-[#dce3fb] bg-[#f7f9ff] px-4 py-3 sm:min-h-32 sm:px-5 sm:py-4 lg:min-h-20 lg:px-2.5 lg:py-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#526fca]">
               {current.label}
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#263247] sm:mt-3 sm:text-3xl">
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#263247] sm:mt-3 sm:text-3xl lg:mt-2 lg:text-2xl">
               {formatValue(current.value, metric.unit)}
             </p>
             <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#778196]">
@@ -165,7 +165,7 @@ export function TrendEvidenceVisualization({
   if (metric.surface === "activity") {
     return (
       <ProductTrendCard
-        heightClassName="h-[448px]"
+        heightClassName="h-[448px] lg:h-[288px]"
         metricLabel={`${metric.label} · ${metric.contextLabel}`}
         latestValue={formatValue(metric.current.value, metric.unit)}
         change={formatChange(signal)}

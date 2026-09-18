@@ -5,6 +5,23 @@
   --ink: #172033;
 }
 
+@media (min-width: 64rem) {
+  :root {
+    --sidebar-width: 12rem;
+    --sidebar-collapsed-width: 3.25rem;
+    --page-padding-x: 1.125rem;
+    --page-padding-y: 0.875rem;
+    --section-gap: 0.75rem;
+    --card-padding: 0.625rem;
+    --card-padding-lg: 0.75rem;
+    --control-height: 1.875rem;
+  }
+
+  .desktop-density-page > section {
+    margin-top: var(--section-gap);
+  }
+}
+
 body {
   background: var(--canvas);
   color: var(--ink);

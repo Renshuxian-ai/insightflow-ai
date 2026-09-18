@@ -20,8 +20,8 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       className={[
         "flex items-center rounded-lg border border-[#e3e7ee] bg-[#f7f8fa]",
         compact
-          ? "mx-auto w-10 justify-center gap-px px-0.5"
-          : "h-9 w-full gap-1 p-1",
+          ? "mx-auto w-10 justify-center gap-px px-0.5 lg:h-[30px] lg:w-11 lg:gap-0 lg:px-0 lg:whitespace-nowrap"
+          : "h-9 w-full gap-1 p-1 lg:h-[var(--control-height)]",
       ].join(" ")}
       role="group"
     >
@@ -34,7 +34,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       >
         中文
       </button>
-      <span aria-hidden="true" className="text-[10px] text-[#b7bec9]">
+      <span aria-hidden="true" className={compact ? "text-[10px] text-[#b7bec9] lg:hidden" : "text-[10px] text-[#b7bec9]"}>
         /
       </span>
       <button
@@ -49,4 +49,3 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
     </div>
   );
 }
-

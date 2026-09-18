@@ -37,26 +37,26 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
 
   return (
     <section
-      className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6"
+      className="rounded-xl border border-[#e7eaf0] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:p-6 lg:p-[var(--card-padding-lg)]"
       aria-labelledby="diagnostic-reasoning-title"
     >
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8]">
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#3559e8] lg:text-[10px]">
           Analysis path
         </p>
         <h2
           id="diagnostic-reasoning-title"
-          className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033]"
+          className="mt-1 text-lg font-semibold tracking-[-0.025em] text-[#172033] lg:mt-0.5 lg:text-[13px]"
         >
           Analysis Path
         </h2>
-        <p className="mt-1.5 text-sm text-[#778196]">
+        <p className="mt-1.5 text-sm text-[#778196] lg:mt-0.5 lg:text-[11px] lg:leading-4">
           Observation is confirmed; inference and hypothesis still require
           human review and validation.
         </p>
       </div>
 
-      <ol className="mt-5 grid gap-0 lg:grid-cols-3 lg:items-stretch">
+      <ol className="mt-5 grid gap-0 lg:mt-2 lg:grid-cols-3 lg:items-stretch">
         {levels.map((level, index) => {
           const item = reasoning[level.key];
 
@@ -69,24 +69,24 @@ export function DiagnosticReasoning({ reasoning }: DiagnosticReasoningProps) {
                 />
               ) : null}
               <span
-                className={`relative z-10 grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold ${level.markerClass}`}
+                className={`relative z-10 grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold lg:size-8 ${level.markerClass}`}
                 aria-hidden="true"
               >
                 {level.marker}
               </span>
-              <article className="mb-3 min-w-0 flex-1 rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 lg:mr-3 lg:mb-0">
+              <article className="mb-3 min-w-0 flex-1 rounded-lg border border-[#e9ecf1] bg-[#fafbfc] p-4 lg:mr-3 lg:mb-0 lg:p-2.5">
                 <div className="flex flex-col justify-between gap-2 xl:flex-row xl:items-start">
                   <div>
-                    <h3 className="text-sm font-semibold text-[#263247]">{level.label}</h3>
-                    <p className="mt-0.5 text-xs text-[#8a94a6]">{level.description}</p>
+                    <h3 className="text-sm font-semibold text-[#263247] lg:text-xs">{level.label}</h3>
+                    <p className="mt-0.5 text-xs text-[#8a94a6] lg:text-[11px]">{level.description}</p>
                   </div>
                   <span
-                    className={`w-fit shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] ${level.statusClass}`}
+                    className={`w-fit shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-[0.06em] lg:px-1.5 lg:py-0.5 lg:text-[9px] ${level.statusClass}`}
                   >
                     {level.status}
                   </span>
                 </div>
-                <p className="mt-3 text-sm font-medium leading-6 text-[#344056]">
+                <p className="mt-3 text-sm font-medium leading-6 text-[#344056] lg:mt-2 lg:text-xs lg:leading-4">
                   {item.statement}
                 </p>
               </article>
